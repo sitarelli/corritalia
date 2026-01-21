@@ -114,23 +114,30 @@ const initialData = [
     { città: "Vicenza", regione: "Veneto" }
 ];
 
+
+
+
+
+
+
+
+
+
+
 let gameActive = false;
 let score = 0;
 let lives = 3;
-let currentTarget = null;
 let gameQueue = [];
 let playerLane = 1; 
-
 let activeGates = [];
 let frameCount = 0;
 let isTurbo = false; 
-
-// Gestione Tempo per fluidità costante (FPS Independent)
 let lastTime = 0;
 
-const SPAWN_INTERVAL = 360; 
-const NORMAL_SPEED = 0.0022; // Leggermente più lenta per S23
-const TURBO_SPEED = 0.012; 
+// VELOCITÀ RALLENTATA
+const SPAWN_INTERVAL = 400; 
+const NORMAL_SPEED = 0.0018; 
+const TURBO_SPEED = 0.01; 
 
 const container = document.getElementById('entities-container');
 const player = document.getElementById('player');
@@ -170,28 +177,19 @@ function startGame() {
     document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
     gameActive = true;
     score = 0; lives = 3; playerLane = 1;
-    isTurbo = false;
-    frameCount = 0;
+    isTurbo = false; frameCount = 0;
     activeGates.forEach(g => g.el.remove());
     activeGates = [];
     gameQueue = [...initialData].sort(() => Math.random() - 0.5);
     updatePlayerPos();
     updateUI();
-    nextMission();
-    spawnGateRow();
     
+    // Mostra la prima città
+    targetCityTitle.textContent = gameQueue[0].città.toUpperCase();
+    
+    spawnGateRow();
     lastTime = performance.now();
     requestAnimationFrame(gameLoop);
-}
-
-function nextMission() {
-    if (gameQueue.length === 0) {
-        gameActive = false;
-        document.getElementById('overlay-win').classList.remove('hidden');
-        return;
-    }
-    currentTarget = gameQueue[0];
-    targetCityTitle.textContent = currentTarget.città.toUpperCase();
 }
 
 function updateUI() {
@@ -199,7 +197,7 @@ function updateUI() {
     livesDisplay.textContent = "❤️".repeat(lives);
 }
 
-// Input Touch e Tastiera (Invariati, ma ottimizzati)
+// Input Touch
 let touchStartY = 0;
 let touchStartX = 0;
 window.addEventListener('touchstart', e => {
@@ -218,6 +216,7 @@ window.addEventListener('touchend', e => {
     }
 });
 
+// Input Tastiera
 window.addEventListener('keydown', e => {
     if (!gameActive) return;
     if (e.key === "ArrowLeft") moveLeft();
@@ -230,34 +229,45 @@ function moveRight() { if (playerLane < 2) { playerLane++; updatePlayerPos(); } 
 function updatePlayerPos() { player.className = `lane-${playerLane}`; }
 
 function spawnGateRow() {
+    if (gameQueue.length === 0) return;
+
     const rowEl = document.createElement('div');
     rowEl.className = 'gate-row';
     container.appendChild(rowEl);
-    const regions = [currentTarget.regione];
+
+    // IMPORTANTE: Leggiamo la città ATTUALE per questo specifico cartello
+    const targetForThisRow = gameQueue[0]; 
+
+    const regions = [targetForThisRow.regione];
     while (regions.length < 3) {
         let r = initialData[Math.floor(Math.random() * initialData.length)].regione;
         if (!regions.includes(r)) regions.push(r);
     }
     regions.sort(() => Math.random() - 0.5);
+
     const gates = regions.map((reg) => {
         const div = document.createElement('div');
         div.className = 'gate';
         div.textContent = reg;
         rowEl.appendChild(div);
-        return { name: reg, correct: reg === currentTarget.regione };
+        return { name: reg, correct: reg === targetForThisRow.regione };
     });
-    activeGates.push({ el: rowEl, progress: 0, gates: gates });
+
+    // Salviamo la regione corretta DENTRO l'oggetto del cartello
+    activeGates.push({ 
+        el: rowEl, 
+        progress: 0, 
+        gates: gates,
+        targetRegione: targetForThisRow.regione 
+    });
 }
 
 function gameLoop(currentTime) {
     if (!gameActive) return;
 
-    // Calcolo Delta Time (basato su 60fps come base = 1.0)
     const deltaTime = (currentTime - lastTime) / 16.67;
     lastTime = currentTime;
-
-    // Se il delta è troppo alto (es. cambio tab), lo limitiamo per evitare salti enormi
-    const dt = Math.min(deltaTime, 3);
+    const dt = Math.min(deltaTime, 2);
 
     frameCount += dt;
     if (frameCount >= SPAWN_INTERVAL) {
@@ -269,8 +279,6 @@ function gameLoop(currentTime) {
 
     for (let i = activeGates.length - 1; i >= 0; i--) {
         let g = activeGates[i];
-        
-        // La velocità ora è moltiplicata per il delta time
         g.progress += currentSpeed * dt;
 
         const y = 15 + (g.progress * 85);
@@ -280,7 +288,9 @@ function gameLoop(currentTime) {
         g.el.style.transform = `scale(${scale})`;
         g.el.style.opacity = g.progress * 5; 
 
-        if (g.progress >= 0.87 && !g.hit) {
+        // Collisione (quando arriva al furgone)
+        // g.progress >= 0.81 circa per la nuova posizione del furgone
+        if (g.progress >= 0.81 && !g.hit) {
             g.hit = true;
             isTurbo = false; 
             checkCollision(g);
@@ -298,19 +308,35 @@ function gameLoop(currentTime) {
 function checkCollision(group) {
     const playerSelection = group.gates[playerLane];
     const gateEls = group.el.querySelectorAll('.gate');
-    if (playerSelection.correct) {
+
+    // Ora controlliamo contro group.targetRegione salvato alla nascita del cartello
+    if (playerSelection.name === group.targetRegione) {
         score++;
         playNote(600, 0.1, 'sine');
         gateEls[playerLane].classList.add('correct-flash');
+        
+        // Rimuovi la città indovinata dalla coda
         gameQueue.shift();
-        nextMission();
+        
+        // Aggiorna subito il nome della missione per il PROSSIMO cartello che nascerà
+        if (gameQueue.length > 0) {
+            targetCityTitle.textContent = gameQueue[0].città.toUpperCase();
+        } else {
+            gameActive = false;
+            document.getElementById('overlay-win').classList.remove('hidden');
+        }
     } else {
         lives--;
         playNote(150, 0.3, 'sawtooth');
         gateEls[playerLane].classList.add('wrong-flash');
+        
+        // Metti la città in fondo alla coda
         const failed = gameQueue.shift();
         gameQueue.push(failed);
-        nextMission();
+        
+        // Mostra la prossima città (che era la seconda, ora è la prima)
+        targetCityTitle.textContent = gameQueue[0].città.toUpperCase();
+
         if (lives <= 0) {
             gameActive = false;
             document.getElementById('overlay-over').classList.remove('hidden');
