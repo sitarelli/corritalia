@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Corriere d'Italia - Pro Edition</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="game-viewport">
+        <div class="hud">
+            <div id="score-display">Città: 0</div>
+            <div id="lives-display">❤️❤️❤️</div>
+        </div>
+
+        <div id="entities-container"></div>
+
+        <div id="player" class="lane-1">
+            <div class="car-sprite"></div>
+        </div>
+
+        <div class="mission-bar">
+            <p>CONSEGNA A:</p>
+            <h1 id="target-city">---</h1>
+        </div>
+
+        <div id="overlay-start" class="overlay">
+            <h1>Giro d'Italia 🇮🇹</h1>
+            <p>Usa le frecce o tocca ai lati.<br><b>SWIPE UP / FRECCIA SU</b> per il Turbo!</p>
+            <button onclick="startGame()">ACCENDI I MOTORI</button>
+        </div>
+
+        <div id="overlay-over" class="overlay hidden">
+            <h1>GAME OVER 💀</h1>
+            <button onclick="startGame()">RIPROVA</button>
+        </div>
+
+        <div id="overlay-win" class="overlay hidden">
+            <h1>CAMPIONE! 🏆</h1>
+            <button onclick="startGame()">GIOCA ANCORA</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
