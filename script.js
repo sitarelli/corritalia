@@ -1,8 +1,5 @@
 const initialData = [
-
-
-
-    { città: "L'Aquila", regione: "Abruzzo" },
+   { città: "L'Aquila", regione: "Abruzzo" },
     { città: "Chieti", regione: "Abruzzo" },
     { città: "Pescara", regione: "Abruzzo" },
     { città: "Teramo", regione: "Abruzzo" },
@@ -115,10 +112,6 @@ const initialData = [
     { città: "Treviso", regione: "Veneto" },
     { città: "Verona", regione: "Veneto" },
     { città: "Vicenza", regione: "Veneto" }
-
-
-
-
 ];
 
 let gameActive = false;
@@ -132,9 +125,12 @@ let activeGates = [];
 let frameCount = 0;
 let isTurbo = false; 
 
+// Gestione Tempo per fluidità costante (FPS Independent)
+let lastTime = 0;
+
 const SPAWN_INTERVAL = 360; 
-const NORMAL_SPEED = 0.0025;
-const TURBO_SPEED = 0.015; 
+const NORMAL_SPEED = 0.0022; // Leggermente più lenta per S23
+const TURBO_SPEED = 0.012; 
 
 const container = document.getElementById('entities-container');
 const player = document.getElementById('player');
@@ -162,43 +158,30 @@ function playTurboSound() {
     const gain = audioCtx.createGain();
     osc.type = 'triangle';
     osc.connect(gain); gain.connect(audioCtx.destination);
-    
     const now = audioCtx.currentTime;
     osc.frequency.setValueAtTime(200, now);
     osc.frequency.exponentialRampToValueAtTime(800, now + 0.3);
-    
     gain.gain.setValueAtTime(0.1, now);
     gain.gain.linearRampToValueAtTime(0, now + 0.3);
-    
     osc.start(); osc.stop(now + 0.3);
 }
 
 function startGame() {
-    // Nascondi overlay
     document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
-    
-    // Reset variabili
     gameActive = true;
     score = 0; lives = 3; playerLane = 1;
     isTurbo = false;
-    frameCount = 0; // Reset counter frame
-    
-    // Pulisci entità precedenti
+    frameCount = 0;
     activeGates.forEach(g => g.el.remove());
     activeGates = [];
-    
-    // Prepara coda città
     gameQueue = [...initialData].sort(() => Math.random() - 0.5);
-    
     updatePlayerPos();
     updateUI();
     nextMission();
-    
-    // SPAWN IMMEDIATO del primo cartello
     spawnGateRow();
     
-    // Avvia loop
-    gameLoop();
+    lastTime = performance.now();
+    requestAnimationFrame(gameLoop);
 }
 
 function nextMission() {
@@ -216,10 +199,9 @@ function updateUI() {
     livesDisplay.textContent = "❤️".repeat(lives);
 }
 
-// Input Touch
+// Input Touch e Tastiera (Invariati, ma ottimizzati)
 let touchStartY = 0;
 let touchStartX = 0;
-
 window.addEventListener('touchstart', e => {
     touchStartX = e.touches[0].clientX;
     touchStartY = e.touches[0].clientY;
@@ -229,29 +211,18 @@ window.addEventListener('touchend', e => {
     if (!gameActive) return;
     const endX = e.changedTouches[0].clientX;
     const endY = e.changedTouches[0].clientY;
-    
     if (touchStartY - endY > 60) {
-        if (!isTurbo) {
-            isTurbo = true;
-            playTurboSound();
-        }
+        if (!isTurbo) { isTurbo = true; playTurboSound(); }
     } else {
-        if (endX < window.innerWidth / 2) moveLeft();
-        else moveRight();
+        if (endX < window.innerWidth / 2) moveLeft(); else moveRight();
     }
 });
 
-// Input Tastiera
 window.addEventListener('keydown', e => {
     if (!gameActive) return;
     if (e.key === "ArrowLeft") moveLeft();
     if (e.key === "ArrowRight") moveRight();
-    if (e.key === "ArrowUp") {
-        if (!isTurbo) {
-            isTurbo = true;
-            playTurboSound();
-        }
-    }
+    if (e.key === "ArrowUp") { if (!isTurbo) { isTurbo = true; playTurboSound(); } }
 });
 
 function moveLeft() { if (playerLane > 0) { playerLane--; updatePlayerPos(); } }
@@ -262,14 +233,12 @@ function spawnGateRow() {
     const rowEl = document.createElement('div');
     rowEl.className = 'gate-row';
     container.appendChild(rowEl);
-
     const regions = [currentTarget.regione];
     while (regions.length < 3) {
         let r = initialData[Math.floor(Math.random() * initialData.length)].regione;
         if (!regions.includes(r)) regions.push(r);
     }
     regions.sort(() => Math.random() - 0.5);
-
     const gates = regions.map((reg) => {
         const div = document.createElement('div');
         div.className = 'gate';
@@ -277,26 +246,33 @@ function spawnGateRow() {
         rowEl.appendChild(div);
         return { name: reg, correct: reg === currentTarget.regione };
     });
-
     activeGates.push({ el: rowEl, progress: 0, gates: gates });
 }
 
-function gameLoop() {
+function gameLoop(currentTime) {
     if (!gameActive) return;
 
-    frameCount++;
-    // Gestione spawn periodico
-    if (frameCount % SPAWN_INTERVAL === 0) {
+    // Calcolo Delta Time (basato su 60fps come base = 1.0)
+    const deltaTime = (currentTime - lastTime) / 16.67;
+    lastTime = currentTime;
+
+    // Se il delta è troppo alto (es. cambio tab), lo limitiamo per evitare salti enormi
+    const dt = Math.min(deltaTime, 3);
+
+    frameCount += dt;
+    if (frameCount >= SPAWN_INTERVAL) {
         spawnGateRow();
+        frameCount = 0;
     }
 
     const currentSpeed = isTurbo ? TURBO_SPEED : NORMAL_SPEED;
 
     for (let i = activeGates.length - 1; i >= 0; i--) {
         let g = activeGates[i];
-        g.progress += currentSpeed;
+        
+        // La velocità ora è moltiplicata per il delta time
+        g.progress += currentSpeed * dt;
 
-        // Prospettiva basata sull'orizzonte (15%)
         const y = 15 + (g.progress * 85);
         const scale = 0.02 + (g.progress * 1.2);
         
@@ -304,14 +280,12 @@ function gameLoop() {
         g.el.style.transform = `scale(${scale})`;
         g.el.style.opacity = g.progress * 5; 
 
-        // Collisione
         if (g.progress >= 0.87 && !g.hit) {
             g.hit = true;
             isTurbo = false; 
             checkCollision(g);
         }
 
-        // Cleanup
         if (g.progress > 1.2) {
             g.el.remove();
             activeGates.splice(i, 1);
@@ -324,7 +298,6 @@ function gameLoop() {
 function checkCollision(group) {
     const playerSelection = group.gates[playerLane];
     const gateEls = group.el.querySelectorAll('.gate');
-
     if (playerSelection.correct) {
         score++;
         playNote(600, 0.1, 'sine');

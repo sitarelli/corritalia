@@ -2,7 +2,7 @@
 
 body {
     font-family: 'Fredoka One', cursive;
-    background: #222;
+    background: #111;
     overflow: hidden;
     height: 100vh;
     display: flex;
@@ -26,7 +26,7 @@ body {
 
 .hud {
     position: absolute;
-    top: 10px;
+    top: env(safe-area-inset-top, 10px);
     width: 100%;
     padding: 0 20px;
     display: flex;
@@ -34,15 +34,14 @@ body {
     z-index: 100;
     color: white;
     text-shadow: 2px 2px 4px #000;
-    font-size: 1.2rem;
 }
 
 #player {
     position: absolute;
-    bottom: 75px; 
+    bottom: 120px; /* Alzato per non coprire la nuova mission bar */
     left: 50%;
-    width: 120px;
-    height: 120px;
+    width: 110px;
+    height: 110px;
     transform: translateX(-50%);
     transition: left 0.15s ease-out;
     z-index: 50;
@@ -61,15 +60,11 @@ body {
     animation: rumble 0.1s infinite alternate;
 }
 
-/* SPOSTAMENTO RIDOTTO DEL 50% */
-#player.lane-0 { left: 35%; } /* Prima era 20% */
+#player.lane-0 { left: 35%; }
 #player.lane-1 { left: 50%; }
-#player.lane-2 { left: 65%; } /* Prima era 80% */
+#player.lane-2 { left: 65%; }
 
-@keyframes rumble { 
-    from { transform: translateY(0); } 
-    to { transform: translateY(-2px); } 
-}
+@keyframes rumble { from { transform: translateY(0); } to { transform: translateY(-2px); } }
 
 .gate-row {
     position: absolute;
@@ -81,33 +76,39 @@ body {
 
 .gate {
     width: 32%;
-    background: rgba(255, 255, 255, 0.95);
+    background: rgba(255, 255, 255, 0.98);
     border: 3px solid #333;
     border-radius: 8px;
-    padding: 6px 2px;
+    padding: 8px 2px;
     text-align: center;
     box-shadow: 0 5px 0 #333;
     color: #333;
-    font-family: "Impact", "Arial Black", sans-serif;
+    /* Font Oswald per massima compatibilità e leggibilità Impact-style */
+    font-family: 'Oswald', sans-serif;
     text-transform: uppercase;
-    font-size: 1.3rem;
+    font-size: 1.2rem;
     line-height: 1;
 }
 
 .correct-flash { background-color: #4CAF50 !important; color: white; border-color: #1B5E20; }
 .wrong-flash { background-color: #F44336 !important; color: white; border-color: #B71C1C; }
 
+/* Barra Missione alzata per visibilità mobile */
 .mission-bar {
     position: absolute;
-    bottom: 0;
-    width: 100%;
+    bottom: 30px; /* Spostata più in alto dal fondo */
+    margin-bottom: env(safe-area-inset-bottom, 0px);
+    width: 90%;
+    left: 5%;
     background: #FFD93D;
-    border-top: 5px solid #333;
-    padding: 10px 15px 15px 15px;
+    border: 4px solid #333;
+    border-radius: 15px;
+    padding: 10px;
     text-align: center;
     z-index: 110;
+    box-shadow: 0 6px 0 rgba(0,0,0,0.3);
 }
-.mission-bar h1 { color: #d32f2f; font-size: 2.2rem; line-height: 1; }
+.mission-bar h1 { color: #d32f2f; font-size: 1.8rem; line-height: 1; }
 
 .overlay {
     position: absolute;
@@ -123,7 +124,6 @@ body {
     text-align: center;
 }
 .hidden { display: none; }
-
 button {
     margin-top: 25px;
     padding: 18px 40px;
