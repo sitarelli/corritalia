@@ -112,7 +112,7 @@ body {
 /* Barra Missione: Bottom 85px */
 .mission-bar {
     position: absolute;
-    bottom: 85px; 
+    bottom: 95px; 
     width: 90%;
     left: 5%;
     background: #FFD93D;
@@ -143,4 +143,5 @@ button {
     border: none; border-radius: 50px;
     color: white; cursor: pointer;
     box-shadow: 0 6px 0 #1B5E20;
+
 }
