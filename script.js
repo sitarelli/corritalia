@@ -180,8 +180,10 @@ function showPopupFeedback(text, color) {
 }
 
 function startGame() {
-    // Sblocco audio immediato su interazione utente
     unlockAudio();
+    
+    // Reset della scritta errore nell'overlay prima di iniziare
+    document.getElementById('last-error-display').textContent = "";
     
     document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
     gameActive = true;
@@ -213,7 +215,7 @@ window.addEventListener('touchmove', e => {
 
 window.addEventListener('touchstart', e => {
     if (gameActive) e.preventDefault(); 
-    unlockAudio(); // Tentativo di sblocco su ogni touch
+    unlockAudio();
     touchStartX = e.touches[0].clientX;
     touchStartY = e.touches[0].clientY;
 }, { passive: false });
@@ -345,13 +347,26 @@ function checkCollision(group) {
     } else {
         lives--;
         playNote(150, 0.3, 'sawtooth');
-        showPopupFeedback("NOO!", "#F44336"); 
+        
+        // MOSTRA IL NOME DELLA REGIONE CORRETTA SULLA STRADA
+        showPopupFeedback(group.targetRegione.toUpperCase(), "#F44336"); 
+        
         gateEls[playerLane].classList.add('wrong-flash');
+        
+        // Salviamo i dati della città corrente prima di spostarla o finire il gioco
+        const currentCity = gameQueue[0].città.toUpperCase();
+        const currentRegione = group.targetRegione.toUpperCase();
+
         const failed = gameQueue.shift();
         gameQueue.push(failed);
         targetCityTitle.textContent = gameQueue[0].città.toUpperCase();
+        
         if (lives <= 0) {
             gameActive = false;
+            // SCRIVIAMO L'ULTIMO ERRORE NELL'OVERLAY
+            document.getElementById('last-error-display').innerHTML = 
+                `L'ultima era:<br><span style="color:white; font-size: 1.5rem;">${currentCity}</span><br>in <span style="color:white; font-size: 1.5rem;">${currentRegione}</span>`;
+            
             document.getElementById('overlay-over').classList.remove('hidden');
         }
     }
