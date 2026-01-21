@@ -3,21 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Corritalia 113 Capoluoghi d'Italia</title>
+    <title>Corritalia - Grand Tour</title>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Oswald:wght@500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <link rel="icon" type="image/png" href="favicon.png">
 
-    <meta property="og:title" content="Corritalia 113 Capoluoghi d'Italia">
-    <meta property="og:description" content="Consegna le province in tutta Italia in questo divertente gioco di guida e geografia!">
-    <meta property="og:url" content="https://sitarelli.github.io/corritalia/">
-    <meta property="og:image" content="https://sitarelli.github.io/corritalia/anteprima.jpg">
+    <meta property="og:title" content="Corritalia - 113 Capoluoghi per Regione">
+    <meta property="og:description" content="Impara la geografia guidando! Due modalità di gioco.">
     <meta property="og:type" content="website">
-
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Corritalia 113 Capoluoghi d'Italia">
-    <meta name="twitter:description" content="Mettiti alla prova con i capoluoghi d'Italia!">
-    <meta name="twitter:image" content="https://sitarelli.github.io/corritalia/anteprima.jpg">
 </head>
 <body>
 
@@ -25,7 +18,7 @@
         <div id="feedback-pop" class="hidden"></div>
 
         <div class="hud">
-            <div id="score-display">Città: 0</div>
+            <div id="score-display">Punti: 0</div>
             <div id="lives-display">❤️❤️❤️</div>
         </div>
 
@@ -36,25 +29,48 @@
         </div>
 
         <div class="mission-bar">
-            <p>CONSEGNA A:</p>
-            <h1 id="target-city">---</h1>
+            <p id="mission-label">DESTINAZIONE:</p>
+            <h1 id="target-display">---</h1>
         </div>
 
-        <div id="overlay-start" class="overlay">
-            <h1>Giro d'Italia 🇮🇹</h1>
+        <div id="overlay-menu" class="overlay">
+            <h1>CORRITALIA 🇮🇹</h1>
+            <p style="margin-bottom: 20px;">Scegli la tua avventura:</p>
             <p>Swipe o freccia a destra / sinistra per sterzare.<br><b>Swipe o freccia su</b> per il Turbo!</p>
-            <button onclick="startGame()">INIZIA IL VIAGGIO</button>
+            </button>
+            <button class="btn-mode" onclick="selectMode('classic')">
+                <span class="btn-title">MODALITÀ CLASSICA</span>
+                <span class="btn-desc">Vedi la CITTÀ, trova la REGIONE</span>
+
+
+            <button class="btn-mode btn-secondary" onclick="selectMode('regional')">
+                <span class="btn-title">MODALITÀ ESPLORATORE</span>
+                <span class="btn-desc">Vedi la REGIONE, raccogli le CITTÀ</span>
+            </button>
+        </div>
+
+        <div id="overlay-start" class="overlay hidden">
+            <h1 id="start-title">Pronto?</h1>
+            <p id="start-instructions">Swipe o frecce per guidare.</p>
+            <button onclick="startGame()">ACCENDI I MOTORI</button>
         </div>
 
         <div id="overlay-over" class="overlay hidden">
             <h1>GAME OVER 💀</h1>
-            <p id="last-error-display" style="margin: 15px 0; font-size: 1.2rem; color: #FFD93D; line-height: 1.4;"></p>
-            <button onclick="startGame()">RIPROVA</button>
+            <div id="error-container">
+                <p id="last-error-display" style="margin: 10px 0; font-size: 1.2rem; color: #FFD93D;"></p>
+                <div id="did-you-know-box">
+                    <span style="font-size: 0.9rem; text-transform: uppercase; color: #aaa;">Lo sapevi che...</span><br>
+                    <p id="did-you-know-text" style="font-size: 1rem; font-style: italic; margin-top: 5px;">...</p>
+                </div>
+            </div>
+            <button onclick="returnToMenu()">TORNA AL MENU</button>
         </div>
 
         <div id="overlay-win" class="overlay hidden">
             <h1>CAMPIONE! 🏆</h1>
-            <button onclick="startGame()">GIOCA ANCORA</button>
+            <p>Hai completato il giro d'Italia!</p>
+            <button onclick="returnToMenu()">MENU PRINCIPALE</button>
         </div>
     </div>
 
