@@ -88,7 +88,7 @@ body {
 /* Barra Missione spostata molto più su */
 .mission-bar {
     position: absolute;
-    bottom: 110px; 
+    bottom: 60px; 
     width: 90%;
     left: 5%;
     background: #FFD93D;
