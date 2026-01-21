@@ -114,9 +114,6 @@ const initialData = [
     { città: "Vicenza", regione: "Veneto" }
 ];
 
-
-
-
 let gameActive = false;
 let score = 0;
 let lives = 3;
@@ -130,6 +127,8 @@ let lastTime = 0;
 const SPAWN_INTERVAL = 400; 
 const NORMAL_SPEED = 0.0018; 
 const TURBO_SPEED = 0.01; 
+// Velocità di uscita (molto veloce ma non istantanea)
+const EXIT_SPEED = 0.025; 
 
 const container = document.getElementById('entities-container');
 const player = document.getElementById('player');
@@ -166,12 +165,11 @@ function playTurboSound() {
     osc.start(); osc.stop(now + 0.3);
 }
 
-// NUOVA FUNZIONE PER TESTO A SCHERMO
 function showPopupFeedback(text, color) {
     feedbackPop.textContent = text;
     feedbackPop.style.color = color;
     feedbackPop.classList.remove('hidden', 'animate-pop');
-    void feedbackPop.offsetWidth; // Trigger reflow per riavviare animazione
+    void feedbackPop.offsetWidth; 
     feedbackPop.classList.add('animate-pop');
 }
 
@@ -196,7 +194,6 @@ function updateUI() {
     livesDisplay.textContent = "❤️".repeat(lives);
 }
 
-// Input Touch
 let touchStartY = 0;
 let touchStartX = 0;
 window.addEventListener('touchstart', e => {
@@ -215,7 +212,6 @@ window.addEventListener('touchend', e => {
     }
 });
 
-// Input Tastiera
 window.addEventListener('keydown', e => {
     if (!gameActive) return;
     if (e.key === "ArrowLeft") moveLeft();
@@ -227,20 +223,25 @@ function moveLeft() { if (playerLane > 0) { playerLane--; updatePlayerPos(); } }
 function moveRight() { if (playerLane < 2) { playerLane++; updatePlayerPos(); } }
 function updatePlayerPos() { player.className = `lane-${playerLane}`; }
 
-// --- MODIFICA FONDAMENTALE QUI ---
 function spawnGateRow() {
-    // Calcoliamo quante righe sono attive ma NON ancora colpite.
-    // Questo ci dice quale città della coda dobbiamo prendere.
     const activeRows = activeGates.filter(g => !g.hit).length;
-    
-    // Se stiamo cercando di spawnare più righe di quante città rimangono, fermiamoci
     if (activeRows >= gameQueue.length) return;
+
+    // --- SAFETY CHECK (DISTANZA DI SICUREZZA) ---
+    // Questo è il fix per la sovrapposizione a velocità normale.
+    // Se c'è già una riga e questa è ancora nella parte alta dello schermo (progress < 0.4),
+    // impediamo la creazione di una nuova riga, anche se il timer ha dato l'ok.
+    // In questo modo aspettiamo che la vecchia scenda fisicamente prima di spawnare la nuova.
+    if (activeGates.length > 0) {
+        const lastGate = activeGates[activeGates.length - 1];
+        if (lastGate.progress < 0.40) return; 
+    }
+    // --------------------------------------------
 
     const rowEl = document.createElement('div');
     rowEl.className = 'gate-row';
     container.appendChild(rowEl);
     
-    // Invece di gameQueue[0], prendiamo la città in base all'offset
     const targetForThisRow = gameQueue[activeRows]; 
     
     const regions = [targetForThisRow.regione];
@@ -256,10 +257,8 @@ function spawnGateRow() {
         rowEl.appendChild(div);
         return { name: reg, correct: reg === targetForThisRow.regione };
     });
-    // Importante: salviamo targetRegione dentro l'oggetto, così non dipende più dalla coda globale
     activeGates.push({ el: rowEl, progress: 0, gates: gates, targetRegione: targetForThisRow.regione });
 }
-// --- FINE MODIFICA ---
 
 function gameLoop(currentTime) {
     if (!gameActive) return;
@@ -267,25 +266,44 @@ function gameLoop(currentTime) {
     lastTime = currentTime;
     const dt = Math.min(deltaTime, 2);
     frameCount += dt;
+
     if (frameCount >= SPAWN_INTERVAL) {
         spawnGateRow();
         frameCount = 0;
     }
-    const currentSpeed = isTurbo ? TURBO_SPEED : NORMAL_SPEED;
+
+    const currentBaseSpeed = isTurbo ? TURBO_SPEED : NORMAL_SPEED;
+
     for (let i = activeGates.length - 1; i >= 0; i--) {
         let g = activeGates[i];
-        g.progress += currentSpeed * dt;
+        
+        // Se la riga è colpita, usa EXIT_SPEED per farla scorrere via veloce.
+        // Altrimenti usa la velocità di gioco normale/turbo.
+        let effectiveSpeed = g.hit ? EXIT_SPEED : currentBaseSpeed;
+
+        g.progress += effectiveSpeed * dt;
+        
         const y = 15 + (g.progress * 85);
         const scale = 0.02 + (g.progress * 1.2);
+        
         g.el.style.top = y + "%";
         g.el.style.transform = `scale(${scale})`;
-        g.el.style.opacity = g.progress * 5; 
+        
+        if (g.hit) {
+            g.el.style.opacity = Math.max(0, 1 - (g.progress - 0.8) * 10);
+        } else {
+            g.el.style.opacity = g.progress * 5; 
+        }
+        
         if (g.progress >= 0.81 && !g.hit) {
             g.hit = true;
-            isTurbo = false; 
             checkCollision(g);
         }
-        if (g.progress > 1.2) {
+
+        if (g.progress > 1.3) { 
+            if (g.hit) {
+                isTurbo = false;
+            }
             g.el.remove();
             activeGates.splice(i, 1);
         }
@@ -297,10 +315,16 @@ function checkCollision(group) {
     const playerSelection = group.gates[playerLane];
     const gateEls = group.el.querySelectorAll('.gate');
 
+    // Timer modificato: non azzeriamo completamente a SPAWN_INTERVAL,
+    // ma diamo un piccolo delay (40 frame, circa 0.6s) per assicurarci
+    // che l'animazione del colpo sia visibile prima che parta il prossimo spawn.
+    // Il "Safety Check" in spawnGateRow farà il resto se la riga vecchia è lenta.
+    frameCount = SPAWN_INTERVAL - 40;
+
     if (playerSelection.name === group.targetRegione) {
         score++;
         playNote(600, 0.1, 'sine');
-        showPopupFeedback("ESATTO", "#4CAF50"); // Testo Verde
+        showPopupFeedback("ESATTO", "#4CAF50"); 
         gateEls[playerLane].classList.add('correct-flash');
         gameQueue.shift();
         if (gameQueue.length > 0) {
@@ -312,7 +336,7 @@ function checkCollision(group) {
     } else {
         lives--;
         playNote(150, 0.3, 'sawtooth');
-        showPopupFeedback("NOO!", "#F44336"); // Testo Rosso
+        showPopupFeedback("NOO!", "#F44336"); 
         gateEls[playerLane].classList.add('wrong-flash');
         const failed = gameQueue.shift();
         gameQueue.push(failed);
