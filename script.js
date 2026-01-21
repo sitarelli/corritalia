@@ -127,7 +127,6 @@ let lastTime = 0;
 const SPAWN_INTERVAL = 400; 
 const NORMAL_SPEED = 0.0018; 
 const TURBO_SPEED = 0.01; 
-// Velocità di uscita (molto veloce ma non istantanea)
 const EXIT_SPEED = 0.025; 
 
 const container = document.getElementById('entities-container');
@@ -194,15 +193,31 @@ function updateUI() {
     livesDisplay.textContent = "❤️".repeat(lives);
 }
 
+// --- LOGICA TOUCH PER INIBIRE PAN E ZOOM ---
 let touchStartY = 0;
 let touchStartX = 0;
+
+// Impedisce lo scorrimento della pagina durante il gioco
+window.addEventListener('touchmove', e => {
+    if (gameActive) e.preventDefault(); 
+}, { passive: false });
+
+// Gestione tocco iniziale e blocco zoom da doppio tocco
 window.addEventListener('touchstart', e => {
+    if (gameActive) e.preventDefault(); 
     touchStartX = e.touches[0].clientX;
     touchStartY = e.touches[0].clientY;
-}, {passive: false});
+}, { passive: false });
+
+// Blocca il pinch-to-zoom (gesto con due dita) su iOS
+window.addEventListener('gesturestart', e => {
+    if (gameActive) e.preventDefault();
+});
 
 window.addEventListener('touchend', e => {
     if (!gameActive) return;
+    // Previene il comportamento predefinito ma permette la logica del gioco
+    e.preventDefault(); 
     const endX = e.changedTouches[0].clientX;
     const endY = e.changedTouches[0].clientY;
     if (touchStartY - endY > 60) {
@@ -210,8 +225,9 @@ window.addEventListener('touchend', e => {
     } else {
         if (endX < window.innerWidth / 2) moveLeft(); else moveRight();
     }
-});
+}, { passive: false });
 
+// Input Tastiera
 window.addEventListener('keydown', e => {
     if (!gameActive) return;
     if (e.key === "ArrowLeft") moveLeft();
@@ -227,16 +243,10 @@ function spawnGateRow() {
     const activeRows = activeGates.filter(g => !g.hit).length;
     if (activeRows >= gameQueue.length) return;
 
-    // --- SAFETY CHECK (DISTANZA DI SICUREZZA) ---
-    // Questo è il fix per la sovrapposizione a velocità normale.
-    // Se c'è già una riga e questa è ancora nella parte alta dello schermo (progress < 0.4),
-    // impediamo la creazione di una nuova riga, anche se il timer ha dato l'ok.
-    // In questo modo aspettiamo che la vecchia scenda fisicamente prima di spawnare la nuova.
     if (activeGates.length > 0) {
         const lastGate = activeGates[activeGates.length - 1];
         if (lastGate.progress < 0.40) return; 
     }
-    // --------------------------------------------
 
     const rowEl = document.createElement('div');
     rowEl.className = 'gate-row';
@@ -276,9 +286,6 @@ function gameLoop(currentTime) {
 
     for (let i = activeGates.length - 1; i >= 0; i--) {
         let g = activeGates[i];
-        
-        // Se la riga è colpita, usa EXIT_SPEED per farla scorrere via veloce.
-        // Altrimenti usa la velocità di gioco normale/turbo.
         let effectiveSpeed = g.hit ? EXIT_SPEED : currentBaseSpeed;
 
         g.progress += effectiveSpeed * dt;
@@ -315,10 +322,6 @@ function checkCollision(group) {
     const playerSelection = group.gates[playerLane];
     const gateEls = group.el.querySelectorAll('.gate');
 
-    // Timer modificato: non azzeriamo completamente a SPAWN_INTERVAL,
-    // ma diamo un piccolo delay (40 frame, circa 0.6s) per assicurarci
-    // che l'animazione del colpo sia visibile prima che parta il prossimo spawn.
-    // Il "Safety Check" in spawnGateRow farà il resto se la riga vecchia è lenta.
     frameCount = SPAWN_INTERVAL - 40;
 
     if (playerSelection.name === group.targetRegione) {
