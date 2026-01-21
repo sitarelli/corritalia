@@ -136,10 +136,17 @@ const scoreDisplay = document.getElementById('score-display');
 const livesDisplay = document.getElementById('lives-display');
 const feedbackPop = document.getElementById('feedback-pop');
 
+// --- SETUP AUDIO PER IPHONE ---
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
+function unlockAudio() {
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+}
+
 function playNote(freq, dur, type = 'sine') {
-    if (audioCtx.state === 'suspended') audioCtx.resume();
+    unlockAudio();
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     osc.type = type;
@@ -151,7 +158,7 @@ function playNote(freq, dur, type = 'sine') {
 }
 
 function playTurboSound() {
-    if (audioCtx.state === 'suspended') audioCtx.resume();
+    unlockAudio();
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     osc.type = 'triangle';
@@ -173,6 +180,9 @@ function showPopupFeedback(text, color) {
 }
 
 function startGame() {
+    // Sblocco audio immediato su interazione utente
+    unlockAudio();
+    
     document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
     gameActive = true;
     score = 0; lives = 3; playerLane = 1;
@@ -193,30 +203,27 @@ function updateUI() {
     livesDisplay.textContent = "❤️".repeat(lives);
 }
 
-// --- LOGICA TOUCH PER INIBIRE PAN E ZOOM ---
+// --- INPUT E BLOCCO ZOOM/PAN ---
 let touchStartY = 0;
 let touchStartX = 0;
 
-// Impedisce lo scorrimento della pagina durante il gioco
 window.addEventListener('touchmove', e => {
     if (gameActive) e.preventDefault(); 
 }, { passive: false });
 
-// Gestione tocco iniziale e blocco zoom da doppio tocco
 window.addEventListener('touchstart', e => {
     if (gameActive) e.preventDefault(); 
+    unlockAudio(); // Tentativo di sblocco su ogni touch
     touchStartX = e.touches[0].clientX;
     touchStartY = e.touches[0].clientY;
 }, { passive: false });
 
-// Blocca il pinch-to-zoom (gesto con due dita) su iOS
 window.addEventListener('gesturestart', e => {
     if (gameActive) e.preventDefault();
 });
 
 window.addEventListener('touchend', e => {
     if (!gameActive) return;
-    // Previene il comportamento predefinito ma permette la logica del gioco
     e.preventDefault(); 
     const endX = e.changedTouches[0].clientX;
     const endY = e.changedTouches[0].clientY;
@@ -227,7 +234,6 @@ window.addEventListener('touchend', e => {
     }
 }, { passive: false });
 
-// Input Tastiera
 window.addEventListener('keydown', e => {
     if (!gameActive) return;
     if (e.key === "ArrowLeft") moveLeft();
