@@ -183,7 +183,8 @@ function startGame() {
     unlockAudio();
     
     // Reset della scritta errore nell'overlay prima di iniziare
-    document.getElementById('last-error-display').textContent = "";
+    const errorDisplay = document.getElementById('last-error-display');
+    if(errorDisplay) errorDisplay.textContent = "";
     
     document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
     gameActive = true;
@@ -364,8 +365,11 @@ function checkCollision(group) {
         if (lives <= 0) {
             gameActive = false;
             // SCRIVIAMO L'ULTIMO ERRORE NELL'OVERLAY
-            document.getElementById('last-error-display').innerHTML = 
-                `L'ultima era:<br><span style="color:white; font-size: 1.5rem;">${currentCity}</span><br>in <span style="color:white; font-size: 1.5rem;">${currentRegione}</span>`;
+            const errorDisplay = document.getElementById('last-error-display');
+            if(errorDisplay) {
+                errorDisplay.innerHTML = 
+                    `L'ultima era:<br><span style="color:white; font-size: 1.5rem;">${currentCity}</span><br>in <span style="color:white; font-size: 1.5rem;">${currentRegione}</span>`;
+            }
             
             document.getElementById('overlay-over').classList.remove('hidden');
         }
