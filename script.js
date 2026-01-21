@@ -117,13 +117,6 @@ const initialData = [
 
 
 
-
-
-
-
-
-
-
 let gameActive = false;
 let score = 0;
 let lives = 3;
@@ -134,7 +127,6 @@ let frameCount = 0;
 let isTurbo = false; 
 let lastTime = 0;
 
-// VELOCITÀ RALLENTATA
 const SPAWN_INTERVAL = 400; 
 const NORMAL_SPEED = 0.0018; 
 const TURBO_SPEED = 0.01; 
@@ -144,6 +136,7 @@ const player = document.getElementById('player');
 const targetCityTitle = document.getElementById('target-city');
 const scoreDisplay = document.getElementById('score-display');
 const livesDisplay = document.getElementById('lives-display');
+const feedbackPop = document.getElementById('feedback-pop');
 
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -173,6 +166,15 @@ function playTurboSound() {
     osc.start(); osc.stop(now + 0.3);
 }
 
+// NUOVA FUNZIONE PER TESTO A SCHERMO
+function showPopupFeedback(text, color) {
+    feedbackPop.textContent = text;
+    feedbackPop.style.color = color;
+    feedbackPop.classList.remove('hidden', 'animate-pop');
+    void feedbackPop.offsetWidth; // Trigger reflow per riavviare animazione
+    feedbackPop.classList.add('animate-pop');
+}
+
 function startGame() {
     document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
     gameActive = true;
@@ -183,10 +185,7 @@ function startGame() {
     gameQueue = [...initialData].sort(() => Math.random() - 0.5);
     updatePlayerPos();
     updateUI();
-    
-    // Mostra la prima città
     targetCityTitle.textContent = gameQueue[0].città.toUpperCase();
-    
     spawnGateRow();
     lastTime = performance.now();
     requestAnimationFrame(gameLoop);
@@ -230,21 +229,16 @@ function updatePlayerPos() { player.className = `lane-${playerLane}`; }
 
 function spawnGateRow() {
     if (gameQueue.length === 0) return;
-
     const rowEl = document.createElement('div');
     rowEl.className = 'gate-row';
     container.appendChild(rowEl);
-
-    // IMPORTANTE: Leggiamo la città ATTUALE per questo specifico cartello
     const targetForThisRow = gameQueue[0]; 
-
     const regions = [targetForThisRow.regione];
     while (regions.length < 3) {
         let r = initialData[Math.floor(Math.random() * initialData.length)].regione;
         if (!regions.includes(r)) regions.push(r);
     }
     regions.sort(() => Math.random() - 0.5);
-
     const gates = regions.map((reg) => {
         const div = document.createElement('div');
         div.className = 'gate';
@@ -252,56 +246,38 @@ function spawnGateRow() {
         rowEl.appendChild(div);
         return { name: reg, correct: reg === targetForThisRow.regione };
     });
-
-    // Salviamo la regione corretta DENTRO l'oggetto del cartello
-    activeGates.push({ 
-        el: rowEl, 
-        progress: 0, 
-        gates: gates,
-        targetRegione: targetForThisRow.regione 
-    });
+    activeGates.push({ el: rowEl, progress: 0, gates: gates, targetRegione: targetForThisRow.regione });
 }
 
 function gameLoop(currentTime) {
     if (!gameActive) return;
-
     const deltaTime = (currentTime - lastTime) / 16.67;
     lastTime = currentTime;
     const dt = Math.min(deltaTime, 2);
-
     frameCount += dt;
     if (frameCount >= SPAWN_INTERVAL) {
         spawnGateRow();
         frameCount = 0;
     }
-
     const currentSpeed = isTurbo ? TURBO_SPEED : NORMAL_SPEED;
-
     for (let i = activeGates.length - 1; i >= 0; i--) {
         let g = activeGates[i];
         g.progress += currentSpeed * dt;
-
         const y = 15 + (g.progress * 85);
         const scale = 0.02 + (g.progress * 1.2);
-        
         g.el.style.top = y + "%";
         g.el.style.transform = `scale(${scale})`;
         g.el.style.opacity = g.progress * 5; 
-
-        // Collisione (quando arriva al furgone)
-        // g.progress >= 0.81 circa per la nuova posizione del furgone
         if (g.progress >= 0.81 && !g.hit) {
             g.hit = true;
             isTurbo = false; 
             checkCollision(g);
         }
-
         if (g.progress > 1.2) {
             g.el.remove();
             activeGates.splice(i, 1);
         }
     }
-
     requestAnimationFrame(gameLoop);
 }
 
@@ -309,16 +285,12 @@ function checkCollision(group) {
     const playerSelection = group.gates[playerLane];
     const gateEls = group.el.querySelectorAll('.gate');
 
-    // Ora controlliamo contro group.targetRegione salvato alla nascita del cartello
     if (playerSelection.name === group.targetRegione) {
         score++;
         playNote(600, 0.1, 'sine');
+        showPopupFeedback("ESATTO", "#4CAF50"); // Testo Verde
         gateEls[playerLane].classList.add('correct-flash');
-        
-        // Rimuovi la città indovinata dalla coda
         gameQueue.shift();
-        
-        // Aggiorna subito il nome della missione per il PROSSIMO cartello che nascerà
         if (gameQueue.length > 0) {
             targetCityTitle.textContent = gameQueue[0].città.toUpperCase();
         } else {
@@ -328,15 +300,11 @@ function checkCollision(group) {
     } else {
         lives--;
         playNote(150, 0.3, 'sawtooth');
+        showPopupFeedback("NOO!", "#F44336"); // Testo Rosso
         gateEls[playerLane].classList.add('wrong-flash');
-        
-        // Metti la città in fondo alla coda
         const failed = gameQueue.shift();
         gameQueue.push(failed);
-        
-        // Mostra la prossima città (che era la seconda, ora è la prima)
         targetCityTitle.textContent = gameQueue[0].città.toUpperCase();
-
         if (lives <= 0) {
             gameActive = false;
             document.getElementById('overlay-over').classList.remove('hidden');
