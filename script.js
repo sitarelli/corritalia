@@ -21,6 +21,22 @@ const initialData = [
    { città: "✪ Venezia", regione: "Veneto" }, { città: "Belluno", regione: "Veneto" }, { città: "Padova", regione: "Veneto" }, { città: "Rovigo", regione: "Veneto" }, { città: "Treviso", regione: "Veneto" }, { città: "Verona", regione: "Veneto" }, { città: "Vicenza", regione: "Veneto" }
 ];
 
+// --- DEFINIZIONE AREE GEOGRAFICHE ---
+// Nota: Ho inserito l'Abruzzo nel Centro come richiesto per l'esempio "Chieti/Rieti/Terni"
+const macroRegions = {
+    "Nord": ["Valle d'Aosta", "Piemonte", "Liguria", "Lombardia", "Trentino-Alto Adige", "Veneto", "Friuli-Venezia Giulia", "Emilia-Romagna"],
+    "Centro": ["Toscana", "Umbria", "Marche", "Lazio", "Abruzzo"], 
+    "Sud": ["Molise", "Campania", "Puglia", "Basilicata", "Calabria", "Sicilia", "Sardegna"]
+};
+
+// Funzione helper per trovare l'area di una regione
+function getMacroArea(regione) {
+    for (const [area, regioni] of Object.entries(macroRegions)) {
+        if (regioni.includes(regione)) return area;
+    }
+    return "Sud"; // Fallback se non trovato
+}
+
 // --- STATO DEL GIOCO ---
 let gameActive = false;
 let currentMode = 'classic'; // 'classic' o 'regional'
@@ -120,18 +136,13 @@ function prepareGameQueue() {
         return [...initialData].sort(() => Math.random() - 0.5);
     } else {
         // Modalità REGIONAL: Raggruppa per regione, mischia regioni, poi appiattisci
-        // 1. Ottieni lista regioni uniche
         const uniqueRegions = [...new Set(initialData.map(item => item.regione))];
-        // 2. Mischia le regioni
         uniqueRegions.sort(() => Math.random() - 0.5);
         
         let organizedQueue = [];
         uniqueRegions.forEach(reg => {
-            // Trova tutte le città di questa regione
             const citiesInRegion = initialData.filter(d => d.regione === reg);
-            // Mischia le città di questa regione
             citiesInRegion.sort(() => Math.random() - 0.5);
-            // Aggiungi alla coda
             organizedQueue.push(...citiesInRegion);
         });
         return organizedQueue;
@@ -212,7 +223,7 @@ function moveLeft() { if (playerLane > 0) { playerLane--; updatePlayerPos(); } }
 function moveRight() { if (playerLane < 2) { playerLane++; updatePlayerPos(); } }
 function updatePlayerPos() { player.className = `lane-${playerLane}`; }
 
-// --- LOGICA SPAWN ---
+// --- LOGICA SPAWN AGGIORNATA ---
 function spawnGateRow() {
     const activeRows = activeGates.filter(g => !g.hit).length;
     if (activeRows >= gameQueue.length) return;
@@ -229,33 +240,61 @@ function spawnGateRow() {
     const currentTarget = gameQueue[activeRows]; 
     let gatesData = [];
 
+    // Ottieni l'area geografica corrente (es. "Nord", "Centro", "Sud")
+    const targetMacroArea = getMacroArea(currentTarget.regione);
+
     if (currentMode === 'classic') {
-        // MODALITÀ CLASSICA: I cartelli sono REGIONI
-        const regions = [currentTarget.regione];
-        while (regions.length < 3) {
-            let r = initialData[Math.floor(Math.random() * initialData.length)].regione;
-            if (!regions.includes(r)) regions.push(r);
+        // MODALITÀ CLASSICA: Target = CITTÀ, Cartelli = REGIONI
+        // La risposta corretta
+        const correctRegion = currentTarget.regione;
+        let options = [correctRegion];
+
+        // Seleziona solo regioni della STESSA macro-area
+        const possibleRegions = macroRegions[targetMacroArea];
+
+        while (options.length < 3) {
+            // Prendi una regione a caso dalla lista delle regioni ammissibili di quell'area
+            let r = possibleRegions[Math.floor(Math.random() * possibleRegions.length)];
+            if (!options.includes(r)) options.push(r);
         }
-        regions.sort(() => Math.random() - 0.5);
+        options.sort(() => Math.random() - 0.5);
         
-        gatesData = regions.map(reg => ({
+        gatesData = options.map(reg => ({
             text: reg,
             isCorrect: reg === currentTarget.regione,
             dataRef: reg
         }));
 
     } else {
-        // MODALITÀ ESPLORATORE: I cartelli sono CITTÀ
-        // La corretta è la città corrente
+        // MODALITÀ ESPLORATORE: Target = REGIONE, Cartelli = CITTÀ
+        // La risposta corretta
         const correctCity = currentTarget.città;
         let options = [correctCity];
         
-        // Cerchiamo città sbagliate (che NON siano della stessa regione corrente)
+        // Trova città sbagliate che appartengono a regioni della STESSA macro-area, 
+        // ma NON alla regione target
+        const candidateCities = initialData.filter(item => {
+            // Deve essere della stessa macro area
+            if (getMacroArea(item.regione) !== targetMacroArea) return false;
+            // Non deve essere della regione target (altrimenti sarebbe corretta o ambigua)
+            if (item.regione === currentTarget.regione) return false;
+            return true;
+        });
+
+        // Se per qualche motivo non ci sono abbastanza candidati (raro), allarga la ricerca
+        // ma con i dati attuali non dovrebbe succedere.
+        
         while (options.length < 3) {
-            let randomItem = initialData[Math.floor(Math.random() * initialData.length)];
-            // Deve essere di una regione diversa da quella attuale e non già presente
-            if (randomItem.regione !== currentTarget.regione && !options.includes(randomItem.città)) {
-                options.push(randomItem.città);
+            if (candidateCities.length > 0) {
+                let randomIndex = Math.floor(Math.random() * candidateCities.length);
+                let randomCity = candidateCities[randomIndex].città;
+                if (!options.includes(randomCity)) {
+                    options.push(randomCity);
+                }
+            } else {
+                // Fallback estremo: città a caso globale se lista vuota
+                let r = initialData[Math.floor(Math.random() * initialData.length)].città;
+                if (!options.includes(r)) options.push(r);
             }
         }
         options.sort(() => Math.random() - 0.5);
@@ -271,7 +310,6 @@ function spawnGateRow() {
     const gateEls = gatesData.map((gData) => {
         const div = document.createElement('div');
         div.className = 'gate';
-        // Se il testo è lungo (es. città composte), aggiungi classe small-text
         if(gData.text.length > 12) div.classList.add('small-text');
         div.textContent = gData.text;
         rowEl.appendChild(div);
@@ -282,7 +320,7 @@ function spawnGateRow() {
         el: rowEl, 
         progress: 0, 
         gates: gateEls, 
-        targetRef: currentTarget // Riferimento all'oggetto città/regione target
+        targetRef: currentTarget 
     });
 }
 
@@ -367,7 +405,7 @@ function checkCollision(group) {
         // Logica errore
         const failedItem = gameQueue.shift();
         gameQueue.push(failedItem); // Rimetti in coda
-        updateTargetDisplay(); // Rinfresca display (nel caso regional potrebbe cambiare regione se era l'ultima)
+        updateTargetDisplay(); 
         
         if (lives <= 0) {
             gameActive = false;
