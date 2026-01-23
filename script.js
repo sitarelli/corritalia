@@ -219,7 +219,7 @@ style.innerHTML = `
             #ingame-trivia {
                 position: absolute;
                 /* Spostato in basso, sopra la barra della missione */
-                bottom: 50px; 
+                bottom: 590px; 
                 left: 50%;
                 transform: translateX(-50%);
                 width: 85%;
