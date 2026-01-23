@@ -153,6 +153,7 @@ const initialData = [
    { città: "Vicenza", regione: "Veneto", curiosità: "Città del Palladio, patrimonio UNESCO per le sue architetture." }
 ];
 
+
 // --- DEFINIZIONE AREE GEOGRAFICHE ---
 const macroRegions = {
     "Nord": ["Valle d'Aosta", "Piemonte", "Liguria", "Lombardia", "Trentino-Alto Adige", "Veneto", "Friuli-Venezia Giulia", "Emilia-Romagna"],
@@ -167,20 +168,76 @@ function getMacroArea(regione) {
     return "Sud"; 
 }
 
-// Funzione pulita per il nome immagine (es. "✪ L'Aquila" -> "img/LAquila.jpg")
-function getCityImageName(nomeCitta) {
-    let cleanName = nomeCitta.replace('✪', '').trim();
-    // Se preferisci nomi file tutti minuscoli e senza spazi, scommenta la riga sotto:
-    // cleanName = cleanName.toLowerCase().replace(/ /g, "_").replace(/'/g, "");
-    return `img/${cleanName}.jpg`;
+// --- UTIL: rimuove accenti (normalize) ---
+function removeDiacritics(str) {
+    return str.normalize('NFD').replace(/[\u0300-\u036f]/g, "");
 }
 
-// --- SETUP ELEMENTI GRAFICI ---
+// Genera una lista di possibili nomi di file (senza prefisso 'img/')
+function generateImageFilenameCandidates(nomeCittaRaw) {
+    if (!nomeCittaRaw) return [];
+    let name = nomeCittaRaw.replace('✪', '').trim(); // togli simboli
+    // alcuni esempi di varianti:
+    const noDiacritics = removeDiacritics(name);
+    const variants = new Set();
+
+    const bases = [name, noDiacritics];
+
+    bases.forEach(b => {
+        variants.add(b + ".jpg");
+        variants.add(b + ".jpeg");
+        variants.add(b + ".png");
+        // con/ senza spazi
+        variants.add(b.replace(/ /g, "_") + ".jpg");
+        variants.add(b.replace(/ /g, "_") + ".jpeg");
+        variants.add(b.replace(/ /g, "_") + ".png");
+        variants.add(b.replace(/ /g, "") + ".jpg");
+        // con/senza apostrofo
+        variants.add(b.replace(/'/g, "") + ".jpg");
+        variants.add(b.replace(/'/g, "_") + ".jpg");
+        // tutto minuscolo
+        variants.add(b.toLowerCase().replace(/ /g, "_").replace(/'/g, "") + ".jpg");
+        variants.add(b.toLowerCase().replace(/ /g, "_").replace(/'/g, "_") + ".jpg");
+        // maiuscolo iniziale (se il file è case-sensitive)
+        variants.add(b.charAt(0).toUpperCase() + b.slice(1) + ".jpg");
+    });
+
+    // inoltre aggiungi versione URL-encoded (utile se il file su server ha spazi o apostrofi)
+    const extras = Array.from(variants).map(v => encodeURIComponent(v));
+    extras.forEach(e => variants.add(e));
+
+    // Prepend path
+    const final = Array.from(variants).map(v => `img/${v}`);
+    // assegna un ordine sensato: preferisci versioni senza encoding e senza estensioni alternative duplicate
+    return final;
+}
+
+// prova a caricare sequenzialmente i candidates, chiama callback on success o fallback
+function tryLoadImageSequential(candidates, onSuccess, onFail) {
+    if (!candidates || candidates.length === 0) { onFail(); return; }
+    let i = 0;
+    function tryOne() {
+        if (i >= candidates.length) { onFail(); return; }
+        const img = new Image();
+        const src = candidates[i];
+        img.src = src;
+        img.onload = function() {
+            onSuccess(src);
+        };
+        img.onerror = function() {
+            i++;
+            // prova il prossimo con una piccola pausa per evitare troppi errori istantanei
+            setTimeout(tryOne, 0);
+        };
+    }
+    tryOne();
+}
+
+// --- SETUP ELEMENTI GRAFICI --- (crea anche ingame-trivia ma lo nascondiamo)
 function createGameElements() {
     const gameViewport = document.getElementById('game-viewport');
     if (!gameViewport) return;
 
-    // 1. IL LIVELLO PIÙ BASSO: Sfondo Città Interno
     if (!document.getElementById('city-background')) {
         const bgDiv = document.createElement('div');
         bgDiv.id = 'city-background';
@@ -196,7 +253,6 @@ function createGameElements() {
         gameViewport.prepend(bgDiv);
     }
 
-    // 2. LIVELLO DI MEZZO: Strada Trasparente (Dentro il viewport)
     if (!document.getElementById('road-frame')) {
         const roadDiv = document.createElement('div');
         roadDiv.id = 'road-frame';
@@ -212,13 +268,11 @@ function createGameElements() {
         gameViewport.prepend(roadDiv);
     }
 
-    // 3. LIVELLO ALTO: Trivia
     if (!document.getElementById('ingame-trivia')) {
         const style = document.createElement('style');
-style.innerHTML = `
+        style.innerHTML = `
             #ingame-trivia {
                 position: absolute;
-                /* Spostato in basso, sopra la barra della missione */
                 bottom: 590px; 
                 left: 50%;
                 transform: translateX(-50%);
@@ -227,10 +281,10 @@ style.innerHTML = `
                 text-align: center;
                 color: #fff;
                 font-family: 'Arial', sans-serif;
-                font-size: 14px; /* Leggermente più piccolo per non ingombrare */
+                font-size: 14px;
                 font-weight: bold;
                 line-height: 1.2;
-                background: rgba(0, 0, 0, 0.7); /* Sfondo un po' più scuro per leggere meglio */
+                background: rgba(0, 0, 0, 0.7);
                 padding: 8px 12px;
                 border-radius: 10px;
                 z-index: 5;
@@ -249,7 +303,6 @@ style.innerHTML = `
     }
 }
 
-// Inizializza subito i livelli
 createGameElements();
 
 // --- STATO DEL GIOCO ---
@@ -265,9 +318,9 @@ let isTurbo = false;
 let lastTime = 0;
 
 const SPAWN_INTERVAL = 400; 
-const NORMAL_SPEED = 0.0018; 
-const TURBO_SPEED = 0.04; 
-const EXIT_SPEED = 0.025; 
+const NORMAL_SPEED = 0.0019; 
+const TURBO_SPEED = 0.03; 
+const EXIT_SPEED = 0.055; 
 
 // --- ELEMENTI DOM ---
 const container = document.getElementById('entities-container');
@@ -277,6 +330,7 @@ const missionLabel = document.getElementById('mission-label');
 const scoreDisplay = document.getElementById('score-display');
 const livesDisplay = document.getElementById('lives-display');
 const feedbackPop = document.getElementById('feedback-pop');
+const targetCuriosity = document.getElementById('target-curiosity');
 
 // --- AUDIO ---
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -374,49 +428,51 @@ function startGame() {
     requestAnimationFrame(gameLoop);
 }
 
-// --- AGGIORNAMENTO TARGET E SFONDI (FIXATO) ---
+// --- AGGIORNAMENTO TARGET E SFONDI (con tentativi multipli per nomi file) ---
 function updateTargetDisplay() {
     if (gameQueue.length === 0) return;
     const currentItem = gameQueue[0];
     const triviaEl = document.getElementById('ingame-trivia');
     const innerBg = document.getElementById('city-background');
 
-    // 1. Aggiornamento Testo Cartello
+    // Mostriamo il label standard e mettiamo la curiosità sotto il nome
+    if (missionLabel) missionLabel.textContent = "DESTINAZIONE:";
+    if (targetDisplay) targetDisplay.textContent = currentItem.città.toUpperCase();
+
     if (currentMode === 'classic') {
-        if (missionLabel) missionLabel.textContent = "PORTA QUESTA CITTÀ A CASA:";
-        if (targetDisplay) targetDisplay.textContent = currentItem.città.toUpperCase();
-        if (triviaEl) {
-            triviaEl.textContent = currentItem.curiosità || "";
-            triviaEl.classList.remove('hidden');
+        if (targetCuriosity) {
+            targetCuriosity.textContent = currentItem.curiosità || "";
+            targetCuriosity.classList.remove('hidden');
         }
+        if (triviaEl) triviaEl.classList.add('hidden');
     } else {
-        if (missionLabel) missionLabel.textContent = "CERCA LE CITTÀ DI:";
-        if (targetDisplay) targetDisplay.textContent = currentItem.regione.toUpperCase();
+        if (targetCuriosity) {
+            targetCuriosity.textContent = "";
+            targetCuriosity.classList.add('hidden');
+        }
         if (triviaEl) triviaEl.classList.add('hidden');
     }
 
-    // 2. Gestione Sfondo (Esterno Body + Interno Gioco)
-    const imgPath = getCityImageName(currentItem.città);
-    const imgTest = new Image();
-    imgTest.src = imgPath;
-
-    imgTest.onload = function() {
-        document.body.style.backgroundImage = `url('${imgPath}')`;
+    // Prepariamo i possibili nomi file e proviamo a caricarne uno valido
+    const candidates = generateImageFilenameCandidates(currentItem.città);
+    tryLoadImageSequential(candidates, function(foundSrc) {
+        // successo: applichiamo l'immagine di sfondo
+        document.body.style.backgroundImage = `url('${foundSrc}')`;
         document.body.style.backgroundColor = "transparent";
         if (innerBg) {
-            innerBg.style.backgroundImage = `url('${imgPath}')`;
+            innerBg.style.backgroundImage = `url('${foundSrc}')`;
             innerBg.style.opacity = "1";
         }
-    };
-
-    imgTest.onerror = function() {
+    }, function() {
+        // fallback: nessuna immagine trovata
         document.body.style.backgroundImage = "none";
         document.body.style.backgroundColor = "black";
         if (innerBg) {
             innerBg.style.backgroundImage = "none";
             innerBg.style.backgroundColor = "#1a1a1a";
+            innerBg.style.opacity = "1";
         }
-    };
+    });
 }
 
 function updateUI() {

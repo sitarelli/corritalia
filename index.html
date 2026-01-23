@@ -37,6 +37,8 @@
         <div class="mission-bar">
             <p id="mission-label">DESTINAZIONE:</p>
             <h1 id="target-display">---</h1>
+            <!-- Qui compare la curiosità per la città (sotto il nome) -->
+            <p id="target-curiosity" class="hidden">...</p>
         </div>
 
         <div id="overlay-menu" class="overlay">
@@ -47,7 +49,7 @@
             <button class="btn-mode" onclick="selectMode('classic')">
                 <span class="btn-title">MODALITÀ CLASSICA</span>
                 <span class="btn-desc">Vedi la CITTÀ, trova la REGIONE</span>
-
+            </button>
 
             <button class="btn-mode btn-secondary" onclick="selectMode('regional')">
                 <span class="btn-title">MODALITÀ ESPLORATORE</span>
