@@ -138,7 +138,7 @@ const initialData = [
 
    // UMBRIA
    { città: "✪ Perugia", regione: "Umbria", curiosità: "Città del cioccolato, del jazz e di un centro storico medievale." },
-   { città: "Terni", regione: "Umbria", curiosità: "Città dell'acciaio e di San Valentino, patrono degli innamorati." },
+   { città: "Terni", regione: "Umbria", curiosità: "Città dell'acciaio e di San Valentino, patrono degli innamovati." },
 
    // VALLE D'AOSTA
    { città: "✪ Aosta", regione: "Valle d'Aosta", curiosità: "La 'Roma delle Alpi', ricchissima di monumenti romani." },
@@ -160,63 +160,101 @@ const macroRegions = {
     "Sud": ["Molise", "Campania", "Puglia", "Basilicata", "Calabria", "Sicilia", "Sardegna"]
 };
 
-// Funzione helper per trovare l'area di una regione
 function getMacroArea(regione) {
     for (const [area, regioni] of Object.entries(macroRegions)) {
         if (regioni.includes(regione)) return area;
     }
-    return "Sud"; // Fallback
+    return "Sud"; 
 }
 
-// --- INITIALIZATION DEL RIQUADRO CURIOSITÀ ---
-// Crea dinamicamente l'elemento e lo stile per non toccare l'HTML
-function createTriviaElement() {
-    if (document.getElementById('ingame-trivia')) return; // Evita duplicati
+// Funzione pulita per il nome immagine (es. "✪ L'Aquila" -> "img/LAquila.jpg")
+function getCityImageName(nomeCitta) {
+    let cleanName = nomeCitta.replace('✪', '').trim();
+    // Se preferisci nomi file tutti minuscoli e senza spazi, scommenta la riga sotto:
+    // cleanName = cleanName.toLowerCase().replace(/ /g, "_").replace(/'/g, "");
+    return `img/${cleanName}.jpg`;
+}
 
-    // Stili CSS
-    const style = document.createElement('style');
-    style.innerHTML = `
-        #ingame-trivia {
+// --- SETUP ELEMENTI GRAFICI ---
+function createGameElements() {
+    const gameViewport = document.getElementById('game-viewport');
+    if (!gameViewport) return;
+
+    // 1. IL LIVELLO PIÙ BASSO: Sfondo Città Interno
+    if (!document.getElementById('city-background')) {
+        const bgDiv = document.createElement('div');
+        bgDiv.id = 'city-background';
+        bgDiv.style.cssText = `
             position: absolute;
-            top: 5%; /* Sotto header punti/cuori */
-            left: 50%;
-            transform: translateX(-50%);
-            width: 90%;
-            max-width: 600px;
-            text-align: center;
-            color: #fff;
-            font-family: 'Arial', sans-serif;
-            font-size: 15px;
-            font-weight: bold;
-            line-height: 1.3;
-            background: rgba(0, 0, 0, 0.45); /* Sfondo semitrasparente */
-            padding: 10px 15px;
-            border-radius: 12px;
-            z-index: 5; /* Sotto i popup ma sopra il gioco */
-            pointer-events: none;
-            transition: opacity 0.5s;
-            text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-    `;
-    document.head.appendChild(style);
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -2;
+            background-color: #333;
+            background-size: cover;
+            background-position: center bottom;
+            transition: background-image 0.5s ease-in-out;
+        `;
+        gameViewport.prepend(bgDiv);
+    }
 
-    // Elemento HTML
-    const triviaDiv = document.createElement('div');
-    triviaDiv.id = 'ingame-trivia';
-    triviaDiv.className = 'hidden'; // Parte nascosto
-    // Lo inseriamo nel container del gioco o nel body
-    const gameContainer = document.getElementById('entities-container') || document.body;
-    gameContainer.appendChild(triviaDiv);
+    // 2. LIVELLO DI MEZZO: Strada Trasparente (Dentro il viewport)
+    if (!document.getElementById('road-frame')) {
+        const roadDiv = document.createElement('div');
+        roadDiv.id = 'road-frame';
+        roadDiv.style.cssText = `
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1;
+            background-image: url('img/strada_trasparente.png'); 
+            background-size: cover;
+            background-position: center bottom;
+            pointer-events: none;
+        `;
+        gameViewport.prepend(roadDiv);
+    }
+
+    // 3. LIVELLO ALTO: Trivia
+    if (!document.getElementById('ingame-trivia')) {
+        const style = document.createElement('style');
+style.innerHTML = `
+            #ingame-trivia {
+                position: absolute;
+                /* Spostato in basso, sopra la barra della missione */
+                bottom: 50px; 
+                left: 50%;
+                transform: translateX(-50%);
+                width: 85%;
+                max-width: 400px;
+                text-align: center;
+                color: #fff;
+                font-family: 'Arial', sans-serif;
+                font-size: 14px; /* Leggermente più piccolo per non ingombrare */
+                font-weight: bold;
+                line-height: 1.2;
+                background: rgba(0, 0, 0, 0.7); /* Sfondo un po' più scuro per leggere meglio */
+                padding: 8px 12px;
+                border-radius: 10px;
+                z-index: 5;
+                pointer-events: none;
+                transition: opacity 0.5s;
+                text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+            }
+        `;
+        document.head.appendChild(style);
+
+        const triviaDiv = document.createElement('div');
+        triviaDiv.id = 'ingame-trivia';
+        triviaDiv.className = 'hidden'; 
+        gameViewport.appendChild(triviaDiv);
+    }
 }
 
-// Chiamata immediata per setup
-createTriviaElement();
-
+// Inizializza subito i livelli
+createGameElements();
 
 // --- STATO DEL GIOCO ---
 let gameActive = false;
-let currentMode = 'classic'; // 'classic' o 'regional'
+let currentMode = 'classic'; 
 let score = 0;
 let lives = 3;
 let gameQueue = [];
@@ -228,7 +266,7 @@ let lastTime = 0;
 
 const SPAWN_INTERVAL = 400; 
 const NORMAL_SPEED = 0.0018; 
-const TURBO_SPEED = 0.01; 
+const TURBO_SPEED = 0.04; 
 const EXIT_SPEED = 0.025; 
 
 // --- ELEMENTI DOM ---
@@ -240,7 +278,7 @@ const scoreDisplay = document.getElementById('score-display');
 const livesDisplay = document.getElementById('lives-display');
 const feedbackPop = document.getElementById('feedback-pop');
 
-// --- SETUP AUDIO ---
+// --- AUDIO ---
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 function unlockAudio() { if (audioCtx.state === 'suspended') audioCtx.resume(); }
 
@@ -271,6 +309,7 @@ function playTurboSound() {
 }
 
 function showPopupFeedback(text, color) {
+    if (!feedbackPop) return;
     feedbackPop.textContent = text;
     feedbackPop.style.color = color;
     feedbackPop.classList.remove('hidden', 'animate-pop');
@@ -278,12 +317,10 @@ function showPopupFeedback(text, color) {
     feedbackPop.classList.add('animate-pop');
 }
 
-// --- GESTIONE MENU E MODALITÀ ---
+// --- MENU E GESTIONE CODE ---
 function selectMode(mode) {
     currentMode = mode;
     document.getElementById('overlay-menu').classList.add('hidden');
-    
-    // Configura i testi dell'overlay Start
     const startTitle = document.getElementById('start-title');
     const startInstr = document.getElementById('start-instructions');
     
@@ -294,7 +331,6 @@ function selectMode(mode) {
         startTitle.textContent = "Modalità Esploratore";
         startInstr.innerHTML = "Apparirà una <b>REGIONE</b>.<br>Raccogli tutte le sue <b>CITTÀ</b>.";
     }
-    
     document.getElementById('overlay-start').classList.remove('hidden');
 }
 
@@ -302,101 +338,102 @@ function returnToMenu() {
     gameActive = false;
     document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
     document.getElementById('overlay-menu').classList.remove('hidden');
-    
-    // Nascondi anche il trivia in game
     const triviaEl = document.getElementById('ingame-trivia');
     if (triviaEl) triviaEl.classList.add('hidden');
-    
     activeGates.forEach(g => g.el.remove());
     activeGates = [];
 }
 
 function prepareGameQueue() {
-    if (currentMode === 'classic') {
-        // Mischia tutto casualmente
-        return [...initialData].sort(() => Math.random() - 0.5);
-    } else {
-        // Modalità REGIONAL: Raggruppa per regione
-        const uniqueRegions = [...new Set(initialData.map(item => item.regione))];
-        uniqueRegions.sort(() => Math.random() - 0.5);
-        
-        let organizedQueue = [];
-        uniqueRegions.forEach(reg => {
-            const citiesInRegion = initialData.filter(d => d.regione === reg);
-            citiesInRegion.sort(() => Math.random() - 0.5);
-            organizedQueue.push(...citiesInRegion);
-        });
-        return organizedQueue;
-    }
+    let data = [...initialData].sort(() => Math.random() - 0.5);
+    if (currentMode === 'classic') return data;
+
+    const uniqueRegions = [...new Set(initialData.map(item => item.regione))].sort(() => Math.random() - 0.5);
+    let organized = [];
+    uniqueRegions.forEach(reg => {
+        const cities = initialData.filter(d => d.regione === reg).sort(() => Math.random() - 0.5);
+        organized.push(...cities);
+    });
+    return organized;
 }
 
 function startGame() {
     unlockAudio();
     document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
-    
     gameActive = true;
     score = 0; lives = 3; playerLane = 1;
     isTurbo = false; frameCount = 0;
-    
     activeGates.forEach(g => g.el.remove());
     activeGates = [];
-    
     gameQueue = prepareGameQueue();
-    
     updatePlayerPos();
     updateUI();
     updateTargetDisplay();
-    
     spawnGateRow();
     lastTime = performance.now();
     requestAnimationFrame(gameLoop);
 }
 
+// --- AGGIORNAMENTO TARGET E SFONDI (FIXATO) ---
 function updateTargetDisplay() {
     if (gameQueue.length === 0) return;
-    
-    const target = gameQueue[0];
+    const currentItem = gameQueue[0];
     const triviaEl = document.getElementById('ingame-trivia');
+    const innerBg = document.getElementById('city-background');
 
+    // 1. Aggiornamento Testo Cartello
     if (currentMode === 'classic') {
-        missionLabel.textContent = "PORTA QUESTA CITTÀ A CASA:";
-        targetDisplay.textContent = target.città.toUpperCase();
-        
-        // MOSTRA CURIOSITÀ IN GIOCO (solo classic mode)
+        if (missionLabel) missionLabel.textContent = "PORTA QUESTA CITTÀ A CASA:";
+        if (targetDisplay) targetDisplay.textContent = currentItem.città.toUpperCase();
         if (triviaEl) {
-            triviaEl.textContent = target.curiosità || "";
+            triviaEl.textContent = currentItem.curiosità || "";
             triviaEl.classList.remove('hidden');
         }
     } else {
-        missionLabel.textContent = "CERCA LE CITTÀ DI:";
-        targetDisplay.textContent = target.regione.toUpperCase();
-        
-        // NASCONDI CURIOSITÀ IN GIOCO (modalità regioni)
-        if (triviaEl) {
-            triviaEl.classList.add('hidden');
-        }
+        if (missionLabel) missionLabel.textContent = "CERCA LE CITTÀ DI:";
+        if (targetDisplay) targetDisplay.textContent = currentItem.regione.toUpperCase();
+        if (triviaEl) triviaEl.classList.add('hidden');
     }
+
+    // 2. Gestione Sfondo (Esterno Body + Interno Gioco)
+    const imgPath = getCityImageName(currentItem.città);
+    const imgTest = new Image();
+    imgTest.src = imgPath;
+
+    imgTest.onload = function() {
+        document.body.style.backgroundImage = `url('${imgPath}')`;
+        document.body.style.backgroundColor = "transparent";
+        if (innerBg) {
+            innerBg.style.backgroundImage = `url('${imgPath}')`;
+            innerBg.style.opacity = "1";
+        }
+    };
+
+    imgTest.onerror = function() {
+        document.body.style.backgroundImage = "none";
+        document.body.style.backgroundColor = "black";
+        if (innerBg) {
+            innerBg.style.backgroundImage = "none";
+            innerBg.style.backgroundColor = "#1a1a1a";
+        }
+    };
 }
 
 function updateUI() {
-    scoreDisplay.textContent = `Punti: ${score}`;
-    livesDisplay.textContent = "❤️".repeat(lives);
+    if (scoreDisplay) scoreDisplay.textContent = `Punti: ${score}`;
+    if (livesDisplay) livesDisplay.textContent = "❤️".repeat(lives);
 }
 
-// --- INPUT E CONTROLLI ---
-let touchStartY = 0;
-let touchStartX = 0;
-window.addEventListener('touchmove', e => { if (gameActive) e.preventDefault(); }, { passive: false });
+// --- CONTROLLI ---
+let touchStartY = 0, touchStartX = 0;
 window.addEventListener('touchstart', e => {
-    if (gameActive) e.preventDefault(); 
-    unlockAudio();
+    if (gameActive) e.preventDefault();
     touchStartX = e.touches[0].clientX;
     touchStartY = e.touches[0].clientY;
 }, { passive: false });
-window.addEventListener('gesturestart', e => { if (gameActive) e.preventDefault(); });
+
 window.addEventListener('touchend', e => {
     if (!gameActive) return;
-    e.preventDefault(); 
     const endX = e.changedTouches[0].clientX;
     const endY = e.changedTouches[0].clientY;
     if (touchStartY - endY > 60) {
@@ -410,212 +447,117 @@ window.addEventListener('keydown', e => {
     if (!gameActive) return;
     if (e.key === "ArrowLeft") moveLeft();
     if (e.key === "ArrowRight") moveRight();
-    if (e.key === "ArrowUp") { if (!isTurbo) { isTurbo = true; playTurboSound(); } }
+    if (e.key === "ArrowUp" && !isTurbo) { isTurbo = true; playTurboSound(); }
 });
 
 function moveLeft() { if (playerLane > 0) { playerLane--; updatePlayerPos(); } }
 function moveRight() { if (playerLane < 2) { playerLane++; updatePlayerPos(); } }
-function updatePlayerPos() { player.className = `lane-${playerLane}`; }
+function updatePlayerPos() { if(player) player.className = `lane-${playerLane}`; }
 
-// --- LOGICA SPAWN ---
+// --- SPAWN E LOOP ---
 function spawnGateRow() {
     const activeRows = activeGates.filter(g => !g.hit).length;
     if (activeRows >= gameQueue.length) return;
-
-    if (activeGates.length > 0) {
-        const lastGate = activeGates[activeGates.length - 1];
-        if (lastGate.progress < 0.40) return; 
-    }
+    if (activeGates.length > 0 && activeGates[activeGates.length - 1].progress < 0.40) return;
 
     const rowEl = document.createElement('div');
     rowEl.className = 'gate-row';
     container.appendChild(rowEl);
     
     const currentTarget = gameQueue[activeRows]; 
+    const targetArea = getMacroArea(currentTarget.regione);
     let gatesData = [];
 
-    // Ottieni l'area geografica corrente
-    const targetMacroArea = getMacroArea(currentTarget.regione);
-
     if (currentMode === 'classic') {
-        const correctRegion = currentTarget.regione;
-        let options = [correctRegion];
-        const possibleRegions = macroRegions[targetMacroArea];
-
+        let options = [currentTarget.regione];
+        const possible = macroRegions[targetArea];
         while (options.length < 3) {
-            let r = possibleRegions[Math.floor(Math.random() * possibleRegions.length)];
+            let r = possible[Math.floor(Math.random() * possible.length)];
             if (!options.includes(r)) options.push(r);
         }
         options.sort(() => Math.random() - 0.5);
-        
-        gatesData = options.map(reg => ({
-            text: reg,
-            isCorrect: reg === currentTarget.regione,
-            dataRef: reg
-        }));
-
+        gatesData = options.map(reg => ({ text: reg, isCorrect: reg === currentTarget.regione }));
     } else {
-        const correctCity = currentTarget.città;
-        let options = [correctCity];
-        
-        const candidateCities = initialData.filter(item => {
-            if (getMacroArea(item.regione) !== targetMacroArea) return false;
-            if (item.regione === currentTarget.regione) return false;
-            return true;
-        });
-        
+        let options = [currentTarget.città];
+        const candidates = initialData.filter(i => getMacroArea(i.regione) === targetArea && i.regione !== currentTarget.regione);
         while (options.length < 3) {
-            if (candidateCities.length > 0) {
-                let randomIndex = Math.floor(Math.random() * candidateCities.length);
-                let randomCity = candidateCities[randomIndex].città;
-                if (!options.includes(randomCity)) {
-                    options.push(randomCity);
-                }
-            } else {
-                let r = initialData[Math.floor(Math.random() * initialData.length)].città;
-                if (!options.includes(r)) options.push(r);
-            }
+            let c = candidates.length > 0 ? candidates[Math.floor(Math.random() * candidates.length)].città : initialData[Math.floor(Math.random() * initialData.length)].città;
+            if (!options.includes(c)) options.push(c);
         }
         options.sort(() => Math.random() - 0.5);
-        
-        gatesData = options.map(cit => ({
-            text: cit,
-            isCorrect: cit === currentTarget.città,
-            dataRef: cit
-        }));
+        gatesData = options.map(cit => ({ text: cit, isCorrect: cit === currentTarget.città }));
     }
 
-    const gateEls = gatesData.map((gData) => {
+    const gateEls = gatesData.map(d => {
         const div = document.createElement('div');
         div.className = 'gate';
-        if(gData.text.length > 12) div.classList.add('small-text');
-        div.textContent = gData.text;
+        if(d.text.length > 12) div.classList.add('small-text');
+        div.textContent = d.text;
         rowEl.appendChild(div);
-        return { isCorrect: gData.isCorrect, text: gData.text };
+        return { isCorrect: d.isCorrect, text: d.text };
     });
 
-    activeGates.push({ 
-        el: rowEl, 
-        progress: 0, 
-        gates: gateEls, 
-        targetRef: currentTarget 
-    });
+    activeGates.push({ el: rowEl, progress: 0, gates: gateEls });
 }
 
 function gameLoop(currentTime) {
     if (!gameActive) return;
-    const deltaTime = (currentTime - lastTime) / 16.67;
+    const dt = Math.min((currentTime - lastTime) / 16.67, 2);
     lastTime = currentTime;
-    const dt = Math.min(deltaTime, 2);
     frameCount += dt;
 
-    if (frameCount >= SPAWN_INTERVAL) {
-        spawnGateRow();
-        frameCount = 0;
-    }
+    if (frameCount >= SPAWN_INTERVAL) { spawnGateRow(); frameCount = 0; }
 
-    const currentBaseSpeed = isTurbo ? TURBO_SPEED : NORMAL_SPEED;
-
+    const speed = isTurbo ? TURBO_SPEED : NORMAL_SPEED;
     for (let i = activeGates.length - 1; i >= 0; i--) {
         let g = activeGates[i];
-        let effectiveSpeed = g.hit ? EXIT_SPEED : currentBaseSpeed;
-
-        g.progress += effectiveSpeed * dt;
+        g.progress += (g.hit ? EXIT_SPEED : speed) * dt;
+        g.el.style.top = (15 + g.progress * 85) + "%";
+        g.el.style.transform = `scale(${0.02 + g.progress * 1.2})`;
+        g.el.style.opacity = g.hit ? Math.max(0, 1 - (g.progress - 0.8) * 10) : g.progress * 5;
         
-        const y = 15 + (g.progress * 85);
-        const scale = 0.02 + (g.progress * 1.2);
-        
-        g.el.style.top = y + "%";
-        g.el.style.transform = `scale(${scale})`;
-        
-        if (g.hit) {
-            g.el.style.opacity = Math.max(0, 1 - (g.progress - 0.8) * 10);
-        } else {
-            g.el.style.opacity = g.progress * 5; 
-        }
-        
-        if (g.progress >= 0.81 && !g.hit) {
-            g.hit = true;
-            checkCollision(g);
-        }
-
-        if (g.progress > 1.3) { 
-            if (g.hit) {
-                isTurbo = false;
-            }
-            g.el.remove();
-            activeGates.splice(i, 1);
-        }
+        if (g.progress >= 0.81 && !g.hit) { g.hit = true; checkCollision(g); }
+        if (g.progress > 1.3) { if (g.hit) isTurbo = false; g.el.remove(); activeGates.splice(i, 1); }
     }
     requestAnimationFrame(gameLoop);
 }
 
 function checkCollision(group) {
-    const playerSelection = group.gates[playerLane];
-    const gateEls = group.el.querySelectorAll('.gate');
-
+    const selection = group.gates[playerLane];
+    const els = group.el.querySelectorAll('.gate');
     frameCount = SPAWN_INTERVAL - 40; 
 
-    if (playerSelection.isCorrect) {
+    if (selection.isCorrect) {
         score++;
-        playNote(600, 0.1, 'sine');
-        showPopupFeedback("ESATTO", "#4CAF50"); 
-        gateEls[playerLane].classList.add('correct-flash');
-        
+        playNote(600, 0.1);
+        showPopupFeedback("ESATTO", "#4CAF50");
+        els[playerLane].classList.add('correct-flash');
         gameQueue.shift();
-        
-        if (gameQueue.length > 0) {
-            updateTargetDisplay();
-        } else {
-            gameActive = false;
-            document.getElementById('overlay-win').classList.remove('hidden');
-            // Nascondi trivia alla vittoria
-            const triviaEl = document.getElementById('ingame-trivia');
-            if(triviaEl) triviaEl.classList.add('hidden');
+        if (gameQueue.length > 0) updateTargetDisplay();
+        else { 
+            gameActive = false; 
+            document.getElementById('overlay-win').classList.remove('hidden'); 
         }
     } else {
         lives--;
         playNote(150, 0.3, 'sawtooth');
-        
-        const correctGate = group.gates.find(g => g.isCorrect);
-        showPopupFeedback(correctGate.text.toUpperCase(), "#F44336"); 
-        
-        gateEls[playerLane].classList.add('wrong-flash');
-        
-        const failedItem = gameQueue.shift();
-        gameQueue.push(failedItem); 
-        updateTargetDisplay(); 
-        
-        if (lives <= 0) {
-            gameActive = false;
-            const errorDisplay = document.getElementById('last-error-display');
-            const didYouKnowText = document.getElementById('did-you-know-text');
-            
-            // Nascondi trivia in-game al game over
-            const triviaEl = document.getElementById('ingame-trivia');
-            if(triviaEl) triviaEl.classList.add('hidden');
-
-            if (currentMode === 'classic') {
-                errorDisplay.innerHTML = `Dovevi portare <br><b>${failedItem.città}</b> in <b>${failedItem.regione}</b>`;
-            } else {
-                errorDisplay.innerHTML = `La città <b>${failedItem.città}</b><br>è in <b>${failedItem.regione}</b>`;
-            }
-            
-            // UTILIZZA LA NUOVA FUNZIONE SEMPLIFICATA
-            didYouKnowText.textContent = generateTrivia(failedItem);
-            
-            document.getElementById('overlay-over').classList.remove('hidden');
-        }
+        const correct = group.gates.find(g => g.isCorrect);
+        showPopupFeedback(correct.text.toUpperCase(), "#F44336");
+        els[playerLane].classList.add('wrong-flash');
+        const failed = gameQueue.shift();
+        gameQueue.push(failed);
+        updateTargetDisplay();
+        if (lives <= 0) endGame(failed);
     }
     updateUI();
 }
 
-// --- GENERATORE DI CURIOSITÀ AGGIORNATO ---
-function generateTrivia(item) {
-    // Ora legge direttamente la proprietà 'curiosità' dall'oggetto
-    if (item.curiosità) {
-        return item.curiosità;
-    }
-    // Fallback di sicurezza nel caso mancasse qualche dato
-    return `${item.città} è un'importante località della regione ${item.regione}.`;
+function endGame(failedItem) {
+    gameActive = false;
+    const errorDisplay = document.getElementById('last-error-display');
+    const didYouKnow = document.getElementById('did-you-know-text');
+    if (currentMode === 'classic') errorDisplay.innerHTML = `Dovevi portare <br><b>${failedItem.città}</b> in <b>${failedItem.regione}</b>`;
+    else errorDisplay.innerHTML = `La città <b>${failedItem.città}</b><br>è in <b>${failedItem.regione}</b>`;
+    didYouKnow.textContent = failedItem.curiosità || "";
+    document.getElementById('overlay-over').classList.remove('hidden');
 }

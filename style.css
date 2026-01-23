@@ -2,7 +2,9 @@
 
 body {
     font-family: 'Fredoka One', cursive;
-    background-image: url('sfondo-esterno.jpg'); 
+    /* Rimuovi o commenta la riga background-image fissa */
+    /* background-image: url('sfondo-esterno.jpg'); */ 
+    background-color: black; /* Default se non trova l'immagine */
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
@@ -11,6 +13,7 @@ body {
     height: 100vh;
     display: flex; justify-content: center; align-items: center;
     touch-action: none;
+    transition: background-image 0.5s ease-in-out; /* Per un cambio morbido */
 }
 
 #game-viewport {
