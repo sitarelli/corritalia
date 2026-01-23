@@ -168,6 +168,52 @@ function getMacroArea(regione) {
     return "Sud"; // Fallback
 }
 
+// --- INITIALIZATION DEL RIQUADRO CURIOSITÀ ---
+// Crea dinamicamente l'elemento e lo stile per non toccare l'HTML
+function createTriviaElement() {
+    if (document.getElementById('ingame-trivia')) return; // Evita duplicati
+
+    // Stili CSS
+    const style = document.createElement('style');
+    style.innerHTML = `
+        #ingame-trivia {
+            position: absolute;
+            top: 5%; /* Sotto header punti/cuori */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 600px;
+            text-align: center;
+            color: #fff;
+            font-family: 'Arial', sans-serif;
+            font-size: 15px;
+            font-weight: bold;
+            line-height: 1.3;
+            background: rgba(0, 0, 0, 0.45); /* Sfondo semitrasparente */
+            padding: 10px 15px;
+            border-radius: 12px;
+            z-index: 5; /* Sotto i popup ma sopra il gioco */
+            pointer-events: none;
+            transition: opacity 0.5s;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    `;
+    document.head.appendChild(style);
+
+    // Elemento HTML
+    const triviaDiv = document.createElement('div');
+    triviaDiv.id = 'ingame-trivia';
+    triviaDiv.className = 'hidden'; // Parte nascosto
+    // Lo inseriamo nel container del gioco o nel body
+    const gameContainer = document.getElementById('entities-container') || document.body;
+    gameContainer.appendChild(triviaDiv);
+}
+
+// Chiamata immediata per setup
+createTriviaElement();
+
+
 // --- STATO DEL GIOCO ---
 let gameActive = false;
 let currentMode = 'classic'; // 'classic' o 'regional'
@@ -256,6 +302,11 @@ function returnToMenu() {
     gameActive = false;
     document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
     document.getElementById('overlay-menu').classList.remove('hidden');
+    
+    // Nascondi anche il trivia in game
+    const triviaEl = document.getElementById('ingame-trivia');
+    if (triviaEl) triviaEl.classList.add('hidden');
+    
     activeGates.forEach(g => g.el.remove());
     activeGates = [];
 }
@@ -305,12 +356,25 @@ function updateTargetDisplay() {
     if (gameQueue.length === 0) return;
     
     const target = gameQueue[0];
+    const triviaEl = document.getElementById('ingame-trivia');
+
     if (currentMode === 'classic') {
         missionLabel.textContent = "PORTA QUESTA CITTÀ A CASA:";
         targetDisplay.textContent = target.città.toUpperCase();
+        
+        // MOSTRA CURIOSITÀ IN GIOCO (solo classic mode)
+        if (triviaEl) {
+            triviaEl.textContent = target.curiosità || "";
+            triviaEl.classList.remove('hidden');
+        }
     } else {
         missionLabel.textContent = "CERCA LE CITTÀ DI:";
         targetDisplay.textContent = target.regione.toUpperCase();
+        
+        // NASCONDI CURIOSITÀ IN GIOCO (modalità regioni)
+        if (triviaEl) {
+            triviaEl.classList.add('hidden');
+        }
     }
 }
 
@@ -505,6 +569,9 @@ function checkCollision(group) {
         } else {
             gameActive = false;
             document.getElementById('overlay-win').classList.remove('hidden');
+            // Nascondi trivia alla vittoria
+            const triviaEl = document.getElementById('ingame-trivia');
+            if(triviaEl) triviaEl.classList.add('hidden');
         }
     } else {
         lives--;
@@ -524,6 +591,10 @@ function checkCollision(group) {
             const errorDisplay = document.getElementById('last-error-display');
             const didYouKnowText = document.getElementById('did-you-know-text');
             
+            // Nascondi trivia in-game al game over
+            const triviaEl = document.getElementById('ingame-trivia');
+            if(triviaEl) triviaEl.classList.add('hidden');
+
             if (currentMode === 'classic') {
                 errorDisplay.innerHTML = `Dovevi portare <br><b>${failedItem.città}</b> in <b>${failedItem.regione}</b>`;
             } else {
