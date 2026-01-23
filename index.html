@@ -6,16 +6,64 @@
     <title>Corritalia 113 Capoluoghi</title>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Oswald:wght@500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <link rel="icon" type="image/png" href="favicon.png">
+<style>
+        /* 1. SFONDO SUL BODY (Visibile a tutto schermo) */
+        body {
+            background-color: #000;
+            margin: 0;
+            overflow: hidden;
+            height: 100vh;
+            
+            /* L'immagine appare qui */
+            background-image: url('sfondo-esterno.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
 
-     <meta property="og:title" content="Corritalia 113 Capoluoghi per Regione">
-    <meta property="og:description" content="Fatti una partita a questo gioco revival">
-    <meta property="og:image" content="https://sitarelli.github.io/corritalia/anteprima.jpg">
-<meta property="og:image:type" content="image/jpeg">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">    
-    <meta property="og:url" content="https://sitarelli.github.io/corritalia/">
-    <meta name="twitter:card" content="summary_large_image">
+        /* 2. FORZIAMO IL CONTENITORE DI GIOCO AD ESSERE TRASPARENTE INIZIALMENTE */
+        #game-viewport {
+            background-color: transparent !important;
+            background: none !important;
+        }
+
+        /* 3. OVERLAY START COMPLETAMENTE TRASPARENTE E CENTRATO */
+        #overlay-start {
+            background: none !important; /* Nessun colore di sfondo */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            /* Si assicura che stia sopra a tutto */
+            z-index: 100 !important;
+        }
+
+        /* Ombra per leggere il testo sopra l'immagine */
+        #overlay-start h1, 
+        #overlay-start p {
+            text-shadow: 2px 2px 8px rgba(0,0,0, 1);
+        }
+
+        /* --- LA PARTE MAGICA (Soluzione al tuo problema) --- */
+        /* Questa regola dice: "Se l'overlay start è visibile, NASCONDI tutto il resto (strada, auto, grigio)" */
+        /* Così vedrai solo lo sfondo del body attraverso il gioco */
+        #game-viewport:has(#overlay-start:not(.hidden)) > div:not(#overlay-start) {
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+
+        /* Utility */
+        .hidden { display: none !important; }
+    </style>
+
+ <link rel="icon" type="image/png" href="favicon.png">
+
+  
 
 </head>
 <body>
@@ -37,29 +85,17 @@
         <div class="mission-bar">
             <p id="mission-label">DESTINAZIONE:</p>
             <h1 id="target-display">---</h1>
-            <!-- Qui compare la curiosità per la città (sotto il nome) -->
             <p id="target-curiosity" class="hidden">...</p>
         </div>
 
-        <div id="overlay-menu" class="overlay">
+        <div id="overlay-start" class="overlay">
             <h1>CORRITALIA</h1>
-            <p style="margin-bottom: 20px;">Scegli la tua avventura:</p>
-            <p>Swipe o freccia a destra / sinistra per sterzare.<br><b>Swipe o freccia su</b> per il Turbo!</p>
-            </button>
-            <button class="btn-mode" onclick="selectMode('classic')">
-                <span class="btn-title">MODALITÀ CLASSICA</span>
-                <span class="btn-desc">Vedi la CITTÀ, trova la REGIONE</span>
-            </button>
-
-            <button class="btn-mode btn-secondary" onclick="selectMode('regional')">
-                <span class="btn-title">MODALITÀ ESPLORATORE</span>
-                <span class="btn-desc">Vedi la REGIONE, raccogli le CITTÀ</span>
-            </button>
-        </div>
-
-        <div id="overlay-start" class="overlay hidden">
-            <h1 id="start-title">Pronto?</h1>
-            <p id="start-instructions">Swipe o frecce per guidare.</p>
+            <p id="start-instructions">
+                Apparirà il nome di una <b>CITTÀ</b>.<br>
+                Guida verso la sua <b>REGIONE</b>.<br><br>
+                Usa le frecce o trascina per sterzare.<br>
+                <b>Freccia SU</b> per il Turbo!
+            </p>
             <button onclick="startGame()">ACCENDI I MOTORI</button>
         </div>
 
@@ -72,13 +108,13 @@
                     <p id="did-you-know-text" style="font-size: 1rem; font-style: italic; margin-top: 5px;">...</p>
                 </div>
             </div>
-            <button onclick="returnToMenu()">TORNA AL MENU</button>
+            <button onclick="resetToStart()">RIPROVA</button>
         </div>
 
         <div id="overlay-win" class="overlay hidden">
             <h1>CAMPIONE! 🏆</h1>
             <p>Hai completato il giro d'Italia!</p>
-            <button onclick="returnToMenu()">MENU PRINCIPALE</button>
+            <button onclick="resetToStart()">GIOCA ANCORA</button>
         </div>
     </div>
 

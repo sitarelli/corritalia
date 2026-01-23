@@ -173,46 +173,29 @@ function removeDiacritics(str) {
     return str.normalize('NFD').replace(/[\u0300-\u036f]/g, "");
 }
 
-// Genera una lista di possibili nomi di file (senza prefisso 'img/')
+// --- FUNZIONE NOMI FILE: Versione Aggressiva ---
 function generateImageFilenameCandidates(nomeCittaRaw) {
     if (!nomeCittaRaw) return [];
-    let name = nomeCittaRaw.replace('✪', '').trim(); // togli simboli
-    // alcuni esempi di varianti:
-    const noDiacritics = removeDiacritics(name);
-    const variants = new Set();
-
-    const bases = [name, noDiacritics];
-
-    bases.forEach(b => {
-        variants.add(b + ".jpg");
-        variants.add(b + ".jpeg");
-        variants.add(b + ".png");
-        // con/ senza spazi
-        variants.add(b.replace(/ /g, "_") + ".jpg");
-        variants.add(b.replace(/ /g, "_") + ".jpeg");
-        variants.add(b.replace(/ /g, "_") + ".png");
-        variants.add(b.replace(/ /g, "") + ".jpg");
-        // con/senza apostrofo
-        variants.add(b.replace(/'/g, "") + ".jpg");
-        variants.add(b.replace(/'/g, "_") + ".jpg");
-        // tutto minuscolo
-        variants.add(b.toLowerCase().replace(/ /g, "_").replace(/'/g, "") + ".jpg");
-        variants.add(b.toLowerCase().replace(/ /g, "_").replace(/'/g, "_") + ".jpg");
-        // maiuscolo iniziale (se il file è case-sensitive)
-        variants.add(b.charAt(0).toUpperCase() + b.slice(1) + ".jpg");
-    });
-
-    // inoltre aggiungi versione URL-encoded (utile se il file su server ha spazi o apostrofi)
-    const extras = Array.from(variants).map(v => encodeURIComponent(v));
-    extras.forEach(e => variants.add(e));
-
-    // Prepend path
-    const final = Array.from(variants).map(v => `img/${v}`);
-    // assegna un ordine sensato: preferisci versioni senza encoding e senza estensioni alternative duplicate
-    return final;
+    
+    // 1. Togli la stellina
+    let clean = nomeCittaRaw.replace(/✪/g, '').trim();
+    
+    // 2. Togli gli accenti
+    clean = removeDiacritics(clean).toLowerCase();
+    
+    // 3. GENERIAMO IL NOME "PULITO" (solo lettere e numeri)
+    // Esempio: "L'Aquila" diventa "laquila"
+    const simpleName = clean.replace(/[^a-z0-9]/g, "");
+    
+    return [
+        `img/${simpleName}.jpg`,        // Priorità 1: laquila.jpg
+        `img/${simpleName}.jpeg`,
+        `img/${clean.replace(/'/g, " ")}.jpg`, // Backup: l aquila.jpg
+        `img/${clean.replace(/ /g, "_")}.jpg`  // Backup: l_aquila.jpg
+    ];
 }
 
-// prova a caricare sequenzialmente i candidates, chiama callback on success o fallback
+// --- CARICAMENTO IMMAGINI ---
 function tryLoadImageSequential(candidates, onSuccess, onFail) {
     if (!candidates || candidates.length === 0) { onFail(); return; }
     let i = 0;
@@ -226,14 +209,18 @@ function tryLoadImageSequential(candidates, onSuccess, onFail) {
         };
         img.onerror = function() {
             i++;
-            // prova il prossimo con una piccola pausa per evitare troppi errori istantanei
             setTimeout(tryOne, 0);
         };
     }
     tryOne();
 }
 
-// --- SETUP ELEMENTI GRAFICI --- (crea anche ingame-trivia ma lo nascondiamo)
+// --- FUNZIONE RIAVVIO BLINDATA ---
+function resetToStart() {
+    location.reload(); // Ricarica la pagina per evitare qualsiasi errore residuo
+}
+
+// --- SETUP ELEMENTI GRAFICI ---
 function createGameElements() {
     const gameViewport = document.getElementById('game-viewport');
     if (!gameViewport) return;
@@ -372,45 +359,6 @@ function showPopupFeedback(text, color) {
 }
 
 // --- MENU E GESTIONE CODE ---
-function selectMode(mode) {
-    currentMode = mode;
-    document.getElementById('overlay-menu').classList.add('hidden');
-    const startTitle = document.getElementById('start-title');
-    const startInstr = document.getElementById('start-instructions');
-    
-    if (mode === 'classic') {
-        startTitle.textContent = "Giro d'Italia Classico";
-        startInstr.innerHTML = "Apparirà il nome di una <b>CITTÀ</b>.<br>Guida verso la sua <b>REGIONE</b>.";
-    } else {
-        startTitle.textContent = "Modalità Esploratore";
-        startInstr.innerHTML = "Apparirà una <b>REGIONE</b>.<br>Raccogli tutte le sue <b>CITTÀ</b>.";
-    }
-    document.getElementById('overlay-start').classList.remove('hidden');
-}
-
-function returnToMenu() {
-    gameActive = false;
-    document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
-    document.getElementById('overlay-menu').classList.remove('hidden');
-    const triviaEl = document.getElementById('ingame-trivia');
-    if (triviaEl) triviaEl.classList.add('hidden');
-    activeGates.forEach(g => g.el.remove());
-    activeGates = [];
-}
-
-function prepareGameQueue() {
-    let data = [...initialData].sort(() => Math.random() - 0.5);
-    if (currentMode === 'classic') return data;
-
-    const uniqueRegions = [...new Set(initialData.map(item => item.regione))].sort(() => Math.random() - 0.5);
-    let organized = [];
-    uniqueRegions.forEach(reg => {
-        const cities = initialData.filter(d => d.regione === reg).sort(() => Math.random() - 0.5);
-        organized.push(...cities);
-    });
-    return organized;
-}
-
 function startGame() {
     unlockAudio();
     document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
@@ -428,35 +376,28 @@ function startGame() {
     requestAnimationFrame(gameLoop);
 }
 
-// --- AGGIORNAMENTO TARGET E SFONDI (con tentativi multipli per nomi file) ---
+function prepareGameQueue() {
+    return [...initialData].sort(() => Math.random() - 0.5);
+}
+
+// --- AGGIORNAMENTO TARGET E SFONDI ---
 function updateTargetDisplay() {
     if (gameQueue.length === 0) return;
     const currentItem = gameQueue[0];
     const triviaEl = document.getElementById('ingame-trivia');
     const innerBg = document.getElementById('city-background');
 
-    // Mostriamo il label standard e mettiamo la curiosità sotto il nome
     if (missionLabel) missionLabel.textContent = "DESTINAZIONE:";
     if (targetDisplay) targetDisplay.textContent = currentItem.città.toUpperCase();
 
-    if (currentMode === 'classic') {
-        if (targetCuriosity) {
-            targetCuriosity.textContent = currentItem.curiosità || "";
-            targetCuriosity.classList.remove('hidden');
-        }
-        if (triviaEl) triviaEl.classList.add('hidden');
-    } else {
-        if (targetCuriosity) {
-            targetCuriosity.textContent = "";
-            targetCuriosity.classList.add('hidden');
-        }
-        if (triviaEl) triviaEl.classList.add('hidden');
+    if (targetCuriosity) {
+        targetCuriosity.textContent = currentItem.curiosità || "";
+        targetCuriosity.classList.remove('hidden');
     }
+    if (triviaEl) triviaEl.classList.add('hidden');
 
-    // Prepariamo i possibili nomi file e proviamo a caricarne uno valido
     const candidates = generateImageFilenameCandidates(currentItem.città);
     tryLoadImageSequential(candidates, function(foundSrc) {
-        // successo: applichiamo l'immagine di sfondo
         document.body.style.backgroundImage = `url('${foundSrc}')`;
         document.body.style.backgroundColor = "transparent";
         if (innerBg) {
@@ -464,7 +405,6 @@ function updateTargetDisplay() {
             innerBg.style.opacity = "1";
         }
     }, function() {
-        // fallback: nessuna immagine trovata
         document.body.style.backgroundImage = "none";
         document.body.style.backgroundColor = "black";
         if (innerBg) {
@@ -524,25 +464,14 @@ function spawnGateRow() {
     const targetArea = getMacroArea(currentTarget.regione);
     let gatesData = [];
 
-    if (currentMode === 'classic') {
-        let options = [currentTarget.regione];
-        const possible = macroRegions[targetArea];
-        while (options.length < 3) {
-            let r = possible[Math.floor(Math.random() * possible.length)];
-            if (!options.includes(r)) options.push(r);
-        }
-        options.sort(() => Math.random() - 0.5);
-        gatesData = options.map(reg => ({ text: reg, isCorrect: reg === currentTarget.regione }));
-    } else {
-        let options = [currentTarget.città];
-        const candidates = initialData.filter(i => getMacroArea(i.regione) === targetArea && i.regione !== currentTarget.regione);
-        while (options.length < 3) {
-            let c = candidates.length > 0 ? candidates[Math.floor(Math.random() * candidates.length)].città : initialData[Math.floor(Math.random() * initialData.length)].città;
-            if (!options.includes(c)) options.push(c);
-        }
-        options.sort(() => Math.random() - 0.5);
-        gatesData = options.map(cit => ({ text: cit, isCorrect: cit === currentTarget.città }));
+    let options = [currentTarget.regione];
+    const possible = macroRegions[targetArea];
+    while (options.length < 3) {
+        let r = possible[Math.floor(Math.random() * possible.length)];
+        if (!options.includes(r)) options.push(r);
     }
+    options.sort(() => Math.random() - 0.5);
+    gatesData = options.map(reg => ({ text: reg, isCorrect: reg === currentTarget.regione }));
 
     const gateEls = gatesData.map(d => {
         const div = document.createElement('div');
@@ -612,8 +541,7 @@ function endGame(failedItem) {
     gameActive = false;
     const errorDisplay = document.getElementById('last-error-display');
     const didYouKnow = document.getElementById('did-you-know-text');
-    if (currentMode === 'classic') errorDisplay.innerHTML = `Dovevi portare <br><b>${failedItem.città}</b> in <b>${failedItem.regione}</b>`;
-    else errorDisplay.innerHTML = `La città <b>${failedItem.città}</b><br>è in <b>${failedItem.regione}</b>`;
+    errorDisplay.innerHTML = `Dovevi portare <br><b>${failedItem.città}</b> in <b>${failedItem.regione}</b>`;
     didYouKnow.textContent = failedItem.curiosità || "";
     document.getElementById('overlay-over').classList.remove('hidden');
 }
