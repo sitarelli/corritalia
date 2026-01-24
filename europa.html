@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>CorriEuropa 50 Capitali europee</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Oswald:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style-euro.css">
+  <meta property="og:title" content="CorriEuropa 50 Capitali di stato">
+    <meta property="og:description" content="Fatti una partita a questo gioco revival">
+    <meta property="og:image" content="https://sitarelli.github.io/corritalia/anteprima.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">    
+    <meta property="og:url" content="https://sitarelli.github.io/corritalia/">
+    <meta name="twitter:card" content="summary_large_image">
+
+
+<style>
+        /* 1. SFONDO SUL BODY (Visibile a tutto schermo) */
+        body {
+            background-color: #000;
+            margin: 0;
+            overflow: hidden;
+            height: 100vh;
+            
+            /* L'immagine appare qui */
+            background-image: url('sfondo-esterno-euro.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 2. FORZIAMO IL CONTENITORE DI GIOCO AD ESSERE TRASPARENTE INIZIALMENTE */
+        #game-viewport {
+            background-color: transparent !important;
+            background: none !important;
+        }
+
+        /* 3. OVERLAY START COMPLETAMENTE TRASPARENTE E CENTRATO */
+        #overlay-start {
+            background: none !important; /* Nessun colore di sfondo */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            /* Si assicura che stia sopra a tutto */
+            z-index: 100 !important;
+        }
+
+        /* Ombra per leggere il testo sopra l'immagine */
+        #overlay-start h1, 
+        #overlay-start p {
+            text-shadow: 2px 2px 8px rgba(0,0,0, 1);
+        }
+
+        /* --- LA PARTE MAGICA (Soluzione al tuo problema) --- */
+        /* Questa regola dice: "Se l'overlay start è visibile, NASCONDI tutto il resto (strada, auto, grigio)" */
+        /* Così vedrai solo lo sfondo del body attraverso il gioco */
+        #game-viewport:has(#overlay-start:not(.hidden)) > div:not(#overlay-start) {
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+
+        /* Utility */
+        .hidden { display: none !important; }
+    </style>
+
+ <link rel="icon" type="image/png" href="favicon.png">
+
+  
+
+</head>
+
+
+<body>
+
+    <div id="game-viewport">
+        <div id="feedback-pop" class="hidden"></div>
+
+        <div class="hud">
+            <div id="score-display">Punti: 0</div>
+            <div id="lives-display">❤️❤️❤️</div>
+        </div>
+
+        <div id="entities-container"></div>
+
+        <div id="player" class="lane-1">
+            <div class="car-sprite"></div>
+        </div>
+
+        <div class="mission-bar">
+            <p id="mission-label">DESTINAZIONE:</p>
+            <h1 id="target-display">---</h1>
+            <p id="target-curiosity" class="hidden">...</p>
+        </div>
+
+        <div id="overlay-start" class="overlay">
+            <h1>CORRIEUROPA</h1>
+            <p id="start-instructions">
+                Apparirà il nome di una <b>CITTÀ</b>.<br>
+                Guida verso la sua <b>REGIONE</b>.<br><br>
+                Usa le frecce o trascina per sterzare.<br>
+                <b>Freccia SU</b> per il Turbo!
+            </p>
+            <button onclick="startGame()">ACCENDI I MOTORI</button>
+        </div>
+
+        <div id="overlay-over" class="overlay hidden">
+            <h1>GAME OVER 💀</h1>
+            <div id="error-container">
+                <p id="last-error-display" style="margin: 10px 0; font-size: 1.2rem; color: #FFD93D;"></p>
+                <div id="did-you-know-box">
+                    <span style="font-size: 0.9rem; text-transform: uppercase; color: #aaa;">Lo sapevi che...</span><br>
+                    <p id="did-you-know-text" style="font-size: 1rem; font-style: italic; margin-top: 5px;">...</p>
+                </div>
+            </div>
+            <button onclick="resetToStart()">RIPROVA</button>
+        </div>
+
+        <div id="overlay-win" class="overlay hidden">
+            <h1>CAMPIONE! 🏆</h1>
+            <p>Hai completato il giro d'Europa!</p>
+            <button onclick="resetToStart()">GIOCA ANCORA</button>
+        </div>
+    </div>
+
+    <script src="scripteuro.js"></script>
+</body>
+</html>
