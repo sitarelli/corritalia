@@ -179,7 +179,6 @@ function isPortraitDevice() {
     return window.innerHeight > window.innerWidth;
 }
 
-// Genera i nomi file corretti distinguendo tra le due cartelle
 function generateImageFilenameCandidates(nomeCittaRaw) {
     if (!nomeCittaRaw) return [];
     const isPortrait = isPortraitDevice();
@@ -240,31 +239,71 @@ function createGameElements() {
     if (!document.getElementById('city-background')) {
         const bgDiv = document.createElement('div');
         bgDiv.id = 'city-background';
-        bgDiv.style.cssText = `
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            z-index: -2;
-            background-color: #1a1a1a;
-            background-size: cover;
-            background-position: center bottom;
-            transition: none;
-        `;
+        bgDiv.style.cssText = `position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -2; background-color: #1a1a1a; background-size: cover; background-position: center bottom; transition: none;`;
         gameViewport.prepend(bgDiv);
     }
 
     if (!document.getElementById('road-frame')) {
         const roadDiv = document.createElement('div');
         roadDiv.id = 'road-frame';
-        roadDiv.style.cssText = `
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            z-index: -1;
-            background-image: url('img/strada_trasparente.png'); 
-            background-size: cover;
-            background-position: center bottom;
-            pointer-events: none;
-        `;
+        roadDiv.style.cssText = `position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; background-image: url('img/strada_trasparente.png'); background-size: cover; background-position: center bottom; pointer-events: none;`;
         gameViewport.prepend(roadDiv);
+    }
+
+    // NUOVO: Overlay Caricamento con BARRA DI PROGRESSO
+    if (!document.getElementById('loading-overlay')) {
+        const loadingDiv = document.createElement('div');
+        loadingDiv.id = 'loading-overlay';
+        loadingDiv.className = 'hidden';
+        loadingDiv.style.cssText = `
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 100; color: white; text-align: center;
+            background: rgba(0,0,0,0.7); padding: 30px; border-radius: 15px; pointer-events: none;
+        `;
+        
+        const loadingText = document.createElement('div');
+        loadingText.textContent = "Caricamento...";
+        loadingText.style.marginBottom = "15px";
+        loadingText.style.fontWeight = "bold";
+        loadingText.style.fontSize = "1.2rem";
+
+        const barContainer = document.createElement('div');
+        barContainer.style.cssText = `
+            width: 200px; height: 10px; background: #444; border-radius: 5px; overflow: hidden; position: relative;
+        `;
+
+        const barFill = document.createElement('div');
+        barFill.id = 'loading-bar-fill';
+        barFill.style.cssText = `
+            width: 0%; height: 100%; background: #2196F3; border-radius: 5px;
+            transition: width 0.3s ease-out;
+        `;
+
+        // Animazione CSS per il caricamento
+        const styleSheet = document.createElement("style");
+        styleSheet.innerText = `
+            @keyframes fillProgress {
+                0% { width: 0%; }
+                100% { width: 100%; }
+            }
+            .animate-fill { animation: fillProgress 5s linear forwards; }
+        `;
+        document.head.appendChild(styleSheet);
+
+        barContainer.appendChild(barFill);
+        loadingDiv.appendChild(loadingText);
+        loadingDiv.appendChild(barContainer);
+        gameViewport.appendChild(loadingDiv);
+    }
+
+    // Elemento Feedback per errori durante il gioco
+    if (!document.getElementById('game-feedback')) {
+        const feedbackDiv = document.createElement('div');
+        feedbackDiv.id = 'game-feedback';
+        feedbackDiv.className = 'hidden';
+        feedbackDiv.style.cssText = `position: absolute; top: 30%; left: 50%; transform: translateX(-50%); z-index: 90; color: #ffeb3b; font-size: 1.2rem; font-weight: bold; text-align: center; text-shadow: 2px 2px 4px black; background: rgba(183, 28, 28, 0.8); padding: 10px 20px; border-radius: 8px; pointer-events: none; transition: opacity 0.3s;`;
+        gameViewport.appendChild(feedbackDiv);
     }
 }
 createGameElements();
@@ -294,7 +333,7 @@ function playTurboSound() {
     osc.start(); osc.stop(now + 0.3);
 }
 
-// --- VISUALIZZAZIONE SFONDO (CORRETTA PER VERTICALE) ---
+// --- VISUALIZZAZIONE SFONDO ---
 function updateTargetDisplay() {
     if (gameQueue.length === 0) return;
     const currentItem = gameQueue[0];
@@ -351,6 +390,17 @@ const player = document.getElementById('player'), scoreDisplay = document.getEle
 
 function startGame() {
     document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
+    
+    // Mostra caricamento e reset barra
+    const loader = document.getElementById('loading-overlay');
+    const barFill = document.getElementById('loading-bar-fill');
+    if (loader) loader.classList.remove('hidden');
+    if (barFill) {
+        barFill.classList.remove('animate-fill');
+        void barFill.offsetWidth; // Trigger reflow
+        barFill.classList.add('animate-fill');
+    }
+
     gameActive = true; score = 0; lives = 3; playerLane = 1; isTurbo = false; frameCount = 0;
     activeGates.forEach(g => g.el.remove()); activeGates = [];
     gameQueue = [...initialData].sort(() => Math.random() - 0.5);
@@ -395,8 +445,11 @@ window.addEventListener('keydown', e => {
 
 // --- LOGICA SPAWN ---
 function spawnGateRow() {
+    // Nascondi caricamento al primo spawn
+    const loader = document.getElementById('loading-overlay');
+    if (loader) loader.classList.add('hidden');
+
     const activeRows = activeGates.filter(g => !g.hit).length;
-    // Se c'è già una riga vicina, non ne facciamo un'altra
     if (activeRows >= gameQueue.length || (activeGates.length > 0 && activeGates[activeGates.length - 1].progress < 0.40)) return;
 
     const rowEl = document.createElement('div');
@@ -444,18 +497,30 @@ function gameLoop(currentTime) {
 function checkCollision(group) {
     const selection = group.gates[playerLane];
     if (selection.isCorrect) {
-        score++; playNote(600, 0.1); gameQueue.shift();
-        // RESETA IL TIMER: Forza lo spawn della prossima città immediatamente
+        score++; playNote(600, 0.1); 
+        gameQueue.shift();
         frameCount = SPAWN_INTERVAL; 
         if (gameQueue.length > 0) { updateTargetDisplay(); bufferUpcomingCities(); } 
         else { gameActive = false; document.getElementById('overlay-win').classList.remove('hidden'); }
     } else {
         lives--; playNote(150, 0.3, 'sawtooth');
-        const failed = gameQueue.shift(); gameQueue.push(failed);
-        // RESETA IL TIMER: Forza lo spawn anche se hai sbagliato
-        frameCount = SPAWN_INTERVAL;
-        updateTargetDisplay();
-        if (lives <= 0) endGame(failed);
+        const failed = gameQueue.shift(); 
+        
+        // --- SISTEMAZIONE Feedback a video: [Nome Città] sbagliato! ---
+        const feedback = document.getElementById('game-feedback');
+        if (feedback) {
+            feedback.innerHTML = `<b>${failed.città}</b> sbagliato!<br>Era in: <b>${failed.regione}</b>`;
+            feedback.classList.remove('hidden');
+            setTimeout(() => feedback.classList.add('hidden'), 2200);
+        }
+
+        if (lives <= 0) {
+            endGame(failed);
+        } else {
+            gameQueue.push(failed); 
+            frameCount = SPAWN_INTERVAL;
+            updateTargetDisplay();
+        }
     }
     updateUI();
 }
@@ -464,9 +529,14 @@ function endGame(failedItem) {
     gameActive = false;
     const errorDisplay = document.getElementById('last-error-display');
     const didYouKnow = document.getElementById('did-you-know-text');
-    if (errorDisplay) errorDisplay.innerHTML = `Dovevi portare <br><b>${failedItem.città}</b> in <b>${failedItem.regione}</b>`;
-    if (didYouKnow) didYouKnow.textContent = failedItem.curiosità || "";
-    document.getElementById('overlay-over').classList.remove('hidden');
+    if (errorDisplay && failedItem) {
+        errorDisplay.innerHTML = `Hai sbagliato!<br>Dovevi portare <br><b>${failedItem.città}</b> in <b>${failedItem.regione}</b>`;
+    }
+    if (didYouKnow && failedItem) {
+        didYouKnow.textContent = failedItem.curiosità || "";
+    }
+    const overlayOver = document.getElementById('overlay-over');
+    if (overlayOver) overlayOver.classList.remove('hidden');
 }
 
 function resetToStart() {
