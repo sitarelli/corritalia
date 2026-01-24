@@ -168,20 +168,41 @@ function getMacroArea(regione) {
     return "Sud"; 
 }
 
-// --- FUNZIONE PRELOAD ---
-// Carica silenziosamente l'immagine della PROSSIMA città in lista
-function preloadNextTarget() {
-    // Se c'è almeno una città successiva in coda (indice 1, perché 0 è quella attuale)
-    if (gameQueue.length > 1) {
-        const nextCity = gameQueue[1]; 
-        const candidates = generateImageFilenameCandidates(nextCity.città);
+
+// --- GESTIONE CACHE E PRELOAD IMMAGINI ---
+
+// Cache per salvare gli URL delle immagini già caricate e verificate
+// Key: nome città, Value: URL immagine valida
+let imageCache = {}; 
+const PRELOAD_BUFFER_SIZE = 5; // Numero di immagini da tenere pronte in avanti
+
+// Funzione principale per gestire il buffer: controlla le prossime N città
+// e se non sono in cache, inizia a caricarle.
+function bufferUpcomingCities() {
+    if (gameQueue.length <= 1) return;
+
+    // Guarda avanti nella coda fino a PRELOAD_BUFFER_SIZE elementi
+    const maxIndex = Math.min(gameQueue.length, PRELOAD_BUFFER_SIZE);
+    
+    // Partiamo da 1 perché 0 è l'immagine corrente (già caricata)
+    for (let i = 1; i < maxIndex; i++) {
+        const cityData = gameQueue[i];
         
-        // Usiamo la stessa logica di ricerca, ma senza cambiare lo sfondo
-        tryLoadImageSequential(candidates, function(src) {
-            console.log("Preloaded in background: " + src);
-            // Non facciamo nulla: il browser ha salvato l'immagine in cache
+        // Se l'immagine è già in cache, saltiamo
+        if (imageCache[cityData.città]) continue;
+
+        // Altrimenti avviamo la ricerca e il caricamento
+        const candidates = generateImageFilenameCandidates(cityData.città);
+        
+        tryLoadImageSequential(candidates, function(foundSrc) {
+            // Successo: salviamo in cache
+            // Creiamo anche un oggetto Image in memoria per forzare il download del browser
+            const imgPreloader = new Image();
+            imgPreloader.src = foundSrc;
+            imageCache[cityData.città] = foundSrc;
+            console.log(`Buffered: ${cityData.città}`);
         }, function() {
-            // Se fallisce pazienza, ci riproverà il gioco principale
+            // Fallimento (opzionale: gestire errori)
         });
     }
 }
@@ -191,25 +212,21 @@ function resetToStart() {
     // 1. Resetta le variabili di stato
     gameActive = false;
     lives = 3; 
-    currentSpeed = 10; // o la tua velocità iniziale
+    currentSpeed = 10; 
     
-    // 2. Ricarica la coda delle città (copia profonda per non perdere dati)
-    // Assicurati che 'initialData' sia la tua lista completa definita all'inizio
+    // 2. Ricarica la coda delle città
     gameQueue = [...initialData]; 
     
-    // 3. Mescola di nuovo le città (se hai una funzione shuffle)
-    // shuffle(gameQueue); 
-    
-    // 4. Ripristina l'interfaccia (nascondi Game Over/Vittoria, mostra Start)
+    // 3. Ripristina l'interfaccia 
     document.getElementById('overlay-over').classList.add('hidden');
     document.getElementById('overlay-win').classList.add('hidden');
     document.getElementById('overlay-start').classList.remove('hidden');
     
-    // 5. Rimuovi eventuali classi di errore/feedback residui
+    // 4. Rimuovi eventuali classi di errore/feedback residui
     const errorDisplay = document.getElementById('last-error-display');
     if(errorDisplay) errorDisplay.innerHTML = "";
     
-    // 6. Aggiorna la UI (cuori, livello)
+    // 5. Aggiorna la UI (cuori, livello)
     updateUI();
 }
 
@@ -220,8 +237,12 @@ function removeDiacritics(str) {
 }
 
 // --- FUNZIONE NOMI FILE: Versione Aggiornata (Priorità WEBP) ---
+// Ora usa getImageBaseDir() per decidere se cercare in 'img' oppure 'imgvert'
 function generateImageFilenameCandidates(nomeCittaRaw) {
     if (!nomeCittaRaw) return [];
+    
+    // Determina la cartella base a seconda dell'orientamento corrente
+    const baseDir = getImageBaseDir();
     
     // 1. Togli la stellina
     let clean = nomeCittaRaw.replace(/✪/g, '').trim();
@@ -230,18 +251,17 @@ function generateImageFilenameCandidates(nomeCittaRaw) {
     clean = removeDiacritics(clean).toLowerCase();
     
     // 3. GENERIAMO IL NOME "PULITO" (solo lettere e numeri)
-    // Esempio: "L'Aquila" diventa "laquila"
     const simpleName = clean.replace(/[^a-z0-9]/g, "");
     
     // Restituisce array con priorità ai file .webp
     return [
-        `img/${simpleName}.webp`,               // Priorità 1: laquila.webp
-        `img/${simpleName}.jpg`,                // Priorità 2: laquila.jpg
-        `img/${simpleName}.jpeg`,               // Priorità 3: laquila.jpeg
-        `img/${clean.replace(/'/g, " ")}.webp`, // Priorità 4: l aquila.webp
-        `img/${clean.replace(/'/g, " ")}.jpg`,  // Priorità 5: l aquila.jpg
-        `img/${clean.replace(/ /g, "_")}.webp`, // Priorità 6: l_aquila.webp
-        `img/${clean.replace(/ /g, "_")}.jpg`   // Priorità 7: l_aquila.jpg
+        `${baseDir}/${simpleName}.webp`,               
+        `${baseDir}/${simpleName}.jpg`,                
+        `${baseDir}/${simpleName}.jpeg`,               
+        `${baseDir}/${clean.replace(/'/g, " ")}.webp`, 
+        `${baseDir}/${clean.replace(/'/g, " ")}.jpg`,  
+        `${baseDir}/${clean.replace(/ /g, "_")}.webp`, 
+        `${baseDir}/${clean.replace(/ /g, "_")}.jpg`   
     ];
 }
 
@@ -262,7 +282,7 @@ function tryLoadImageSequential(candidates, onSuccess, onFail) {
         // Timeout di 3 secondi per ogni immagine
         timeoutId = setTimeout(() => {
             if (!loaded) {
-                console.log(`Timeout caricamento: ${src}`);
+                // console.log(`Timeout caricamento: ${src}`);
                 i++;
                 tryOne();
             }
@@ -280,7 +300,7 @@ function tryLoadImageSequential(candidates, onSuccess, onFail) {
             if (!loaded) {
                 loaded = true;
                 clearTimeout(timeoutId);
-                console.log(`Errore caricamento: ${src}`);
+                // console.log(`Errore caricamento: ${src}`);
                 i++;
                 tryOne();
             }
@@ -290,33 +310,6 @@ function tryLoadImageSequential(candidates, onSuccess, onFail) {
     }
     tryOne();
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 // --- SETUP ELEMENTI GRAFICI ---
@@ -466,12 +459,15 @@ function startGame() {
     isTurbo = false; frameCount = 0;
     activeGates.forEach(g => g.el.remove());
     activeGates = [];
+    
+    // Prepara la coda e avvia subito il buffering
     gameQueue = prepareGameQueue();
+    bufferUpcomingCities(); 
+    
     updatePlayerPos();
     updateUI();
     
     updateTargetDisplay(); // Carica la città attuale (indice 0)
-    preloadNextTarget();   // Inizia a scaricare la città successiva (indice 1)
 
     spawnGateRow();
     lastTime = performance.now();
@@ -498,23 +494,36 @@ function updateTargetDisplay() {
     }
     if (triviaEl) triviaEl.classList.add('hidden');
 
-    const candidates = generateImageFilenameCandidates(currentItem.città);
-    tryLoadImageSequential(candidates, function(foundSrc) {
-        document.body.style.backgroundImage = `url('${foundSrc}')`;
+    // Funzione helper per applicare l'immagine al DOM
+    const applyImage = (src) => {
+        document.body.style.backgroundImage = `url('${src}')`;
         document.body.style.backgroundColor = "transparent";
         if (innerBg) {
-            innerBg.style.backgroundImage = `url('${foundSrc}')`;
+            innerBg.style.backgroundImage = `url('${src}')`;
             innerBg.style.opacity = "1";
         }
-    }, function() {
-        document.body.style.backgroundImage = "none";
-        document.body.style.backgroundColor = "black";
-        if (innerBg) {
-            innerBg.style.backgroundImage = "none";
-            innerBg.style.backgroundColor = "#1a1a1a";
-            innerBg.style.opacity = "1";
-        }
-    });
+    };
+
+    // 1. Controlla prima la cache
+    if (imageCache[currentItem.città]) {
+        applyImage(imageCache[currentItem.città]);
+    } else {
+        // 2. Se non è in cache, cerca e carica al volo
+        const candidates = generateImageFilenameCandidates(currentItem.città);
+        tryLoadImageSequential(candidates, function(foundSrc) {
+            imageCache[currentItem.città] = foundSrc; // Salva per il futuro
+            applyImage(foundSrc);
+        }, function() {
+            // Fallback se nessuna immagine trovata
+            document.body.style.backgroundImage = "none";
+            document.body.style.backgroundColor = "black";
+            if (innerBg) {
+                innerBg.style.backgroundImage = "none";
+                innerBg.style.backgroundColor = "#1a1a1a";
+                innerBg.style.opacity = "1";
+            }
+        });
+    }
 }
 
 function updateUI() {
@@ -627,9 +636,11 @@ function checkCollision(group) {
         // Rimuovi la città appena indovinata dalla coda
         gameQueue.shift();
         
+        // Appena una città viene rimossa, aggiorniamo il buffer per caricare nuove immagini
+        bufferUpcomingCities();
+
         if (gameQueue.length > 0) {
             updateTargetDisplay(); // Mostra la nuova città attuale
-            preloadNextTarget();   // Scarica già la prossima immagine in background!
         } else { 
             // Hai finito tutte le città: VITTORIA
             gameActive = false; 
@@ -650,6 +661,9 @@ function checkCollision(group) {
         // Prendi la città sbagliata e rimettila in fondo alla coda
         const failed = gameQueue.shift();
         gameQueue.push(failed);
+        
+        // Aggiorna buffer anche qui (potrebbe essere cambiata la sequenza)
+        bufferUpcomingCities();
         
         updateTargetDisplay();
         
@@ -679,54 +693,25 @@ function getImageBaseDir() {
     return isPortraitDevice() ? "imgvert" : "img";
 }
 
-// Al cambiare delle dimensioni/orientamento ricarichiamo lo sfondo corrente (se il tipo cambia)
+// Al cambiare delle dimensioni/orientamento puliamo la cache e ricarichiamo
 window.addEventListener('resize', () => {
     const nowPortrait = isPortraitDevice();
     if (nowPortrait !== _lastPortraitState) {
         _lastPortraitState = nowPortrait;
-        // Riprova a caricare lo sfondo attuale nella nuova versione (verticale/orizzontale)
-        // Se il gioco è attivo o semplicemente per aggiornare la UI:
+        
+        // IMPORTANTE: Se ruota, le immagini in cache non sono più valide 
+        // (sono del formato sbagliato), quindi svuotiamo la cache.
+        imageCache = {};
+        
         try {
             updateTargetDisplay();
+            // Se il gioco è attivo, riempie di nuovo il buffer col nuovo formato
+            if(gameQueue.length > 0) bufferUpcomingCities();
         } catch (e) {
-            // fail silently
             console.log("Aggiornamento sfondo dopo resize fallito:", e);
         }
     }
 });
-
-// --- FUNZIONE NOMI FILE: Versione Aggiornata (Priorità WEBP) ---
-// Ora usa getImageBaseDir() per decidere se cercare in 'img' oppure 'imgvert'
-function generateImageFilenameCandidates(nomeCittaRaw) {
-    if (!nomeCittaRaw) return [];
-
-    const baseDir = getImageBaseDir();
-
-    // 1. Togli la stellina
-    let clean = nomeCittaRaw.replace(/✪/g, '').trim();
-
-    // 2. Togli gli accenti
-    clean = removeDiacritics(clean).toLowerCase();
-
-    // 3. GENERIAMO IL NOME "PULITO" (solo lettere e numeri)
-    // Esempio: "L'Aquila" diventa "laquila"
-    const simpleName = clean.replace(/[^a-z0-9]/g, "");
-
-    // Generiamo le varianti con priorità ai .webp
-    return [
-        `${baseDir}/${simpleName}.webp`,               // laquila.webp
-        `${baseDir}/${simpleName}.jpg`,                // laquila.jpg
-        `${baseDir}/${simpleName}.jpeg`,               // laquila.jpeg
-        `${baseDir}/${clean.replace(/'/g, " ")}.webp`, // l aquila.webp
-        `${baseDir}/${clean.replace(/'/g, " ")}.jpg`,  // l aquila.jpg
-        `${baseDir}/${clean.replace(/ /g, "_")}.webp`, // l_aquila.webp
-        `${baseDir}/${clean.replace(/ /g, "_")}.jpg`   // l_aquila.jpg
-    ];
-}
-
-
-
-
 
 
 function endGame(failedItem) {
