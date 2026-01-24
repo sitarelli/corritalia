@@ -187,6 +187,32 @@ function preloadNextTarget() {
 }
 
 
+function resetToStart() {
+    // 1. Resetta le variabili di stato
+    gameActive = false;
+    lives = 3; 
+    currentSpeed = 10; // o la tua velocità iniziale
+    
+    // 2. Ricarica la coda delle città (copia profonda per non perdere dati)
+    // Assicurati che 'initialData' sia la tua lista completa definita all'inizio
+    gameQueue = [...initialData]; 
+    
+    // 3. Mescola di nuovo le città (se hai una funzione shuffle)
+    // shuffle(gameQueue); 
+    
+    // 4. Ripristina l'interfaccia (nascondi Game Over/Vittoria, mostra Start)
+    document.getElementById('overlay-over').classList.add('hidden');
+    document.getElementById('overlay-win').classList.add('hidden');
+    document.getElementById('overlay-start').classList.remove('hidden');
+    
+    // 5. Rimuovi eventuali classi di errore/feedback residui
+    const errorDisplay = document.getElementById('last-error-display');
+    if(errorDisplay) errorDisplay.innerHTML = "";
+    
+    // 6. Aggiorna la UI (cuori, livello)
+    updateUI();
+}
+
 
 // --- UTIL: rimuove accenti (normalize) ---
 function removeDiacritics(str) {
