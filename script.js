@@ -515,7 +515,7 @@ function checkCollision(group) {
     if (selection.isCorrect) {
         score++;
         playNote(600, 0.1);
-        showPopupFeedback("ESATTO", "#4CAF50");
+        // RIMOSSA: showPopupFeedback("ESATTO", "#4CAF50");
         els[playerLane].classList.add('correct-flash');
         gameQueue.shift();
         if (gameQueue.length > 0) updateTargetDisplay();
