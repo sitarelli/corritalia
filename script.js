@@ -168,6 +168,26 @@ function getMacroArea(regione) {
     return "Sud"; 
 }
 
+// --- FUNZIONE PRELOAD ---
+// Carica silenziosamente l'immagine della PROSSIMA città in lista
+function preloadNextTarget() {
+    // Se c'è almeno una città successiva in coda (indice 1, perché 0 è quella attuale)
+    if (gameQueue.length > 1) {
+        const nextCity = gameQueue[1]; 
+        const candidates = generateImageFilenameCandidates(nextCity.città);
+        
+        // Usiamo la stessa logica di ricerca, ma senza cambiare lo sfondo
+        tryLoadImageSequential(candidates, function(src) {
+            console.log("Preloaded in background: " + src);
+            // Non facciamo nulla: il browser ha salvato l'immagine in cache
+        }, function() {
+            // Se fallisce pazienza, ci riproverà il gioco principale
+        });
+    }
+}
+
+
+
 // --- UTIL: rimuove accenti (normalize) ---
 function removeDiacritics(str) {
     return str.normalize('NFD').replace(/[\u0300-\u036f]/g, "");
@@ -370,7 +390,10 @@ function startGame() {
     gameQueue = prepareGameQueue();
     updatePlayerPos();
     updateUI();
-    updateTargetDisplay();
+    
+    updateTargetDisplay(); // Carica la città attuale (indice 0)
+    preloadNextTarget();   // <--- AGGIUNGI QUESTA RIGA: Inizia a scaricare la città successiva (indice 1)
+
     spawnGateRow();
     lastTime = performance.now();
     requestAnimationFrame(gameLoop);
@@ -510,30 +533,51 @@ function gameLoop(currentTime) {
 function checkCollision(group) {
     const selection = group.gates[playerLane];
     const els = group.el.querySelectorAll('.gate');
+    
+    // Resetta il contatore per dare spazio al prossimo muro
     frameCount = SPAWN_INTERVAL - 40; 
 
     if (selection.isCorrect) {
+        // --- RISPOSTA CORRETTA ---
         score++;
         playNote(600, 0.1);
-        // RIMOSSA: showPopupFeedback("ESATTO", "#4CAF50");
+        
+        // Feedback visivo sulla porta attraversata
         els[playerLane].classList.add('correct-flash');
+        
+        // Rimuovi la città appena indovinata dalla coda
         gameQueue.shift();
-        if (gameQueue.length > 0) updateTargetDisplay();
-        else { 
+        
+        if (gameQueue.length > 0) {
+            updateTargetDisplay(); // Mostra la nuova città attuale
+            preloadNextTarget();   // <--- AGGIUNTA: Scarica già la prossima immagine in background!
+        } else { 
+            // Hai finito tutte le città: VITTORIA
             gameActive = false; 
             document.getElementById('overlay-win').classList.remove('hidden'); 
         }
     } else {
+        // --- RISPOSTA SBAGLIATA ---
         lives--;
         playNote(150, 0.3, 'sawtooth');
+        
+        // Trova la porta corretta per mostrarla nel popup
         const correct = group.gates.find(g => g.isCorrect);
         showPopupFeedback(correct.text.toUpperCase(), "#F44336");
+        
+        // Feedback visivo errore
         els[playerLane].classList.add('wrong-flash');
+        
+        // Prendi la città sbagliata e rimettila in fondo alla coda
         const failed = gameQueue.shift();
         gameQueue.push(failed);
+        
         updateTargetDisplay();
+        
+        // Se le vite sono finite: GAME OVER
         if (lives <= 0) endGame(failed);
     }
+    
     updateUI();
 }
 

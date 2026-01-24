@@ -77,9 +77,9 @@ body {
     background-position: center bottom;
     animation: rumble 0.1s infinite alternate;
 }
-#player.lane-0 { left: 35%; }
+#player.lane-0 { left: 30%; }
 #player.lane-1 { left: 50%; }
-#player.lane-2 { left: 65%; }
+#player.lane-2 { left: 70%; }
 
 @keyframes rumble { from { transform: translateY(0); } to { transform: translateY(-2px); } }
 
