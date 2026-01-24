@@ -153,8 +153,7 @@ const initialData = [
    { città: "Vicenza", regione: "Veneto", curiosità: "Città del Palladio, patrimonio UNESCO per le sue architetture." }
 ];
 
-
-// --- DEFINIZIONE AREE GEOGRAFICHE ---
+// --- LOGICA CORE ---
 const macroRegions = {
     "Nord": ["Valle d'Aosta", "Piemonte", "Liguria", "Lombardia", "Trentino-Alto Adige", "Veneto", "Friuli-Venezia Giulia", "Emilia-Romagna"],
     "Centro": ["Toscana", "Umbria", "Marche", "Lazio", "Abruzzo"], 
@@ -168,151 +167,72 @@ function getMacroArea(regione) {
     return "Sud"; 
 }
 
-
-// --- GESTIONE CACHE E PRELOAD IMMAGINI ---
-
-// Cache per salvare gli URL delle immagini già caricate e verificate
-// Key: nome città, Value: URL immagine valida
 let imageCache = {}; 
-const PRELOAD_BUFFER_SIZE = 5; // Numero di immagini da tenere pronte in avanti
+const PRELOAD_BUFFER_SIZE = 5; 
+let currentImageRequestID = 0; 
 
-// Funzione principale per gestire il buffer: controlla le prossime N città
-// e se non sono in cache, inizia a caricarle.
-function bufferUpcomingCities() {
-    if (gameQueue.length <= 1) return;
-
-    // Guarda avanti nella coda fino a PRELOAD_BUFFER_SIZE elementi
-    const maxIndex = Math.min(gameQueue.length, PRELOAD_BUFFER_SIZE);
-    
-    // Partiamo da 1 perché 0 è l'immagine corrente (già caricata)
-    for (let i = 1; i < maxIndex; i++) {
-        const cityData = gameQueue[i];
-        
-        // Se l'immagine è già in cache, saltiamo
-        if (imageCache[cityData.città]) continue;
-
-        // Altrimenti avviamo la ricerca e il caricamento
-        const candidates = generateImageFilenameCandidates(cityData.città);
-        
-        tryLoadImageSequential(candidates, function(foundSrc) {
-            // Successo: salviamo in cache
-            // Creiamo anche un oggetto Image in memoria per forzare il download del browser
-            const imgPreloader = new Image();
-            imgPreloader.src = foundSrc;
-            imageCache[cityData.città] = foundSrc;
-            console.log(`Buffered: ${cityData.città}`);
-        }, function() {
-            // Fallimento (opzionale: gestire errori)
-        });
-    }
-}
-
-
-function resetToStart() {
-    // 1. Resetta le variabili di stato
-    gameActive = false;
-    lives = 3; 
-    currentSpeed = 10; 
-    
-    // 2. Ricarica la coda delle città
-    gameQueue = [...initialData]; 
-    
-    // 3. Ripristina l'interfaccia 
-    document.getElementById('overlay-over').classList.add('hidden');
-    document.getElementById('overlay-win').classList.add('hidden');
-    document.getElementById('overlay-start').classList.remove('hidden');
-    
-    // 4. Rimuovi eventuali classi di errore/feedback residui
-    const errorDisplay = document.getElementById('last-error-display');
-    if(errorDisplay) errorDisplay.innerHTML = "";
-    
-    // 5. Aggiorna la UI (cuori, livello)
-    updateUI();
-}
-
-
-// --- UTIL: rimuove accenti (normalize) ---
 function removeDiacritics(str) {
     return str.normalize('NFD').replace(/[\u0300-\u036f]/g, "");
 }
 
-// --- FUNZIONE NOMI FILE: Versione Aggiornata (Priorità WEBP) ---
-// Ora usa getImageBaseDir() per decidere se cercare in 'img' oppure 'imgvert'
-function generateImageFilenameCandidates(nomeCittaRaw) {
-    if (!nomeCittaRaw) return [];
-    
-    // Determina la cartella base a seconda dell'orientamento corrente
-    const baseDir = getImageBaseDir();
-    
-    // 1. Togli la stellina
-    let clean = nomeCittaRaw.replace(/✪/g, '').trim();
-    
-    // 2. Togli gli accenti
-    clean = removeDiacritics(clean).toLowerCase();
-    
-    // 3. GENERIAMO IL NOME "PULITO" (solo lettere e numeri)
-    const simpleName = clean.replace(/[^a-z0-9]/g, "");
-    
-    // Restituisce array con priorità ai file .webp
-    return [
-        `${baseDir}/${simpleName}.webp`,               
-        `${baseDir}/${simpleName}.jpg`,                
-        `${baseDir}/${simpleName}.jpeg`,               
-        `${baseDir}/${clean.replace(/'/g, " ")}.webp`, 
-        `${baseDir}/${clean.replace(/'/g, " ")}.jpg`,  
-        `${baseDir}/${clean.replace(/ /g, "_")}.webp`, 
-        `${baseDir}/${clean.replace(/ /g, "_")}.jpg`   
-    ];
+function isPortraitDevice() {
+    return window.innerHeight > window.innerWidth;
 }
 
-
-// --- CARICAMENTO IMMAGINI CON TIMEOUT ---
-function tryLoadImageSequential(candidates, onSuccess, onFail) {
-    if (!candidates || candidates.length === 0) { onFail(); return; }
-    let i = 0;
+// Genera i nomi file corretti distinguendo tra le due cartelle
+function generateImageFilenameCandidates(nomeCittaRaw) {
+    if (!nomeCittaRaw) return [];
+    const isPortrait = isPortraitDevice();
+    const primaryDir = isPortrait ? "imgvert" : "img";
+    const backupDir = isPortrait ? "img" : "imgvert";
     
+    let clean = nomeCittaRaw.replace(/✪/g, '').trim();
+    clean = removeDiacritics(clean).toLowerCase();
+    const simpleName = clean.replace(/[^a-z0-9]/g, "");
+    
+    const candidates = [];
+    [primaryDir, backupDir].forEach(dir => {
+        candidates.push(`${dir}/${simpleName}.webp`);
+        candidates.push(`${dir}/${simpleName}.jpg`);
+        candidates.push(`${dir}/${clean.replace(/'/g, " ")}.webp`);
+        candidates.push(`${dir}/${clean.replace(/ /g, "_")}.jpg`);
+    });
+    return candidates;
+}
+
+function tryLoadImageSequential(candidates, onSuccess, onFail) {
+    let i = 0;
     function tryOne() {
         if (i >= candidates.length) { onFail(); return; }
-        
         const img = new Image();
-        const src = candidates[i];
-        let timeoutId;
-        let loaded = false;
-        
-        // Timeout di 3 secondi per ogni immagine
-        timeoutId = setTimeout(() => {
-            if (!loaded) {
-                // console.log(`Timeout caricamento: ${src}`);
-                i++;
-                tryOne();
-            }
-        }, 3000);
-        
-        img.onload = function() {
-            if (!loaded) {
-                loaded = true;
-                clearTimeout(timeoutId);
-                onSuccess(src);
-            }
-        };
-        
-        img.onerror = function() {
-            if (!loaded) {
-                loaded = true;
-                clearTimeout(timeoutId);
-                // console.log(`Errore caricamento: ${src}`);
-                i++;
-                tryOne();
-            }
-        };
-        
-        img.src = src;
+        img.onload = () => onSuccess(candidates[i]);
+        img.onerror = () => { i++; tryOne(); };
+        img.src = candidates[i];
     }
     tryOne();
 }
 
+function bufferUpcomingCities() {
+    if (gameQueue.length <= 1) return;
+    const isPortrait = isPortraitDevice();
+    const suffix = isPortrait ? "_V" : "_H";
+    const maxIndex = Math.min(gameQueue.length, PRELOAD_BUFFER_SIZE);
+    
+    for (let i = 1; i < maxIndex; i++) {
+        const cityData = gameQueue[i];
+        const cacheKey = cityData.città + suffix;
+        if (imageCache[cacheKey]) continue;
+        
+        const candidates = generateImageFilenameCandidates(cityData.città);
+        tryLoadImageSequential(candidates, (foundSrc) => {
+            const img = new Image();
+            img.src = foundSrc;
+            imageCache[cacheKey] = foundSrc;
+        }, () => {});
+    }
+}
 
-// --- SETUP ELEMENTI GRAFICI ---
+// --- CREAZIONE ELEMENTI ---
 function createGameElements() {
     const gameViewport = document.getElementById('game-viewport');
     if (!gameViewport) return;
@@ -324,7 +244,7 @@ function createGameElements() {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
             z-index: -2;
-            background-color: #333;
+            background-color: #1a1a1a;
             background-size: cover;
             background-position: center bottom;
             transition: none;
@@ -346,93 +266,26 @@ function createGameElements() {
         `;
         gameViewport.prepend(roadDiv);
     }
-
-    if (!document.getElementById('ingame-trivia')) {
-        const style = document.createElement('style');
-        style.innerHTML = `
-            #ingame-trivia {
-                position: absolute;
-                bottom: 590px; 
-                left: 50%;
-                transform: translateX(-50%);
-                width: 85%;
-                max-width: 400px;
-                text-align: center;
-                color: #fff;
-                font-family: 'Arial', sans-serif;
-                font-size: 14px;
-                font-weight: bold;
-                line-height: 1.2;
-                background: rgba(0, 0, 0, 0.7);
-                padding: 8px 12px;
-                border-radius: 10px;
-                z-index: 5;
-                pointer-events: none;
-                transition: opacity 0.5s;
-                text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
-                border: 1px solid rgba(255, 255, 255, 0.2);
-            }
-        `;
-        document.head.appendChild(style);
-
-        const triviaDiv = document.createElement('div');
-        triviaDiv.id = 'ingame-trivia';
-        triviaDiv.className = 'hidden'; 
-        gameViewport.appendChild(triviaDiv);
-    }
 }
-
 createGameElements();
-
-// --- STATO DEL GIOCO ---
-let gameActive = false;
-let currentMode = 'classic'; 
-let score = 0;
-let lives = 3;
-let gameQueue = [];
-let playerLane = 1; 
-let activeGates = [];
-let frameCount = 0;
-let isTurbo = false; 
-let lastTime = 0;
-
-const SPAWN_INTERVAL = 400; 
-const NORMAL_SPEED = 0.0019; 
-const TURBO_SPEED = 0.03; 
-const EXIT_SPEED = 0.055; 
-
-// --- ELEMENTI DOM ---
-const container = document.getElementById('entities-container');
-const player = document.getElementById('player');
-const targetDisplay = document.getElementById('target-display');
-const missionLabel = document.getElementById('mission-label');
-const scoreDisplay = document.getElementById('score-display');
-const livesDisplay = document.getElementById('lives-display');
-const feedbackPop = document.getElementById('feedback-pop');
-const targetCuriosity = document.getElementById('target-curiosity');
 
 // --- AUDIO ---
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-function unlockAudio() { if (audioCtx.state === 'suspended') audioCtx.resume(); }
-
 function playNote(freq, dur, type = 'sine') {
-    unlockAudio();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
-    osc.type = type;
-    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.type = type; osc.connect(gain); gain.connect(audioCtx.destination);
     osc.frequency.value = freq;
     gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + dur);
     osc.start(); osc.stop(audioCtx.currentTime + dur);
 }
-
 function playTurboSound() {
-    unlockAudio();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
-    osc.type = 'triangle';
-    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.type = 'triangle'; osc.connect(gain); gain.connect(audioCtx.destination);
     const now = audioCtx.currentTime;
     osc.frequency.setValueAtTime(200, now);
     osc.frequency.exponentialRampToValueAtTime(800, now + 0.3);
@@ -441,95 +294,78 @@ function playTurboSound() {
     osc.start(); osc.stop(now + 0.3);
 }
 
-function showPopupFeedback(text, color) {
-    if (!feedbackPop) return;
-    feedbackPop.textContent = text;
-    feedbackPop.style.color = color;
-    feedbackPop.classList.remove('hidden', 'animate-pop');
-    void feedbackPop.offsetWidth; 
-    feedbackPop.classList.add('animate-pop');
-}
-
-// --- MENU E GESTIONE CODE ---
-function startGame() {
-    unlockAudio();
-    document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
-    gameActive = true;
-    score = 0; lives = 3; playerLane = 1;
-    isTurbo = false; frameCount = 0;
-    activeGates.forEach(g => g.el.remove());
-    activeGates = [];
-    
-    // Prepara la coda e avvia subito il buffering
-    gameQueue = prepareGameQueue();
-    bufferUpcomingCities(); 
-    
-    updatePlayerPos();
-    updateUI();
-    
-    updateTargetDisplay(); // Carica la città attuale (indice 0)
-
-    spawnGateRow();
-    lastTime = performance.now();
-    requestAnimationFrame(gameLoop);
-}
-
-function prepareGameQueue() {
-    return [...initialData].sort(() => Math.random() - 0.5);
-}
-
-// --- AGGIORNAMENTO TARGET E SFONDI ---
+// --- VISUALIZZAZIONE SFONDO (CORRETTA PER VERTICALE) ---
 function updateTargetDisplay() {
     if (gameQueue.length === 0) return;
     const currentItem = gameQueue[0];
-    const triviaEl = document.getElementById('ingame-trivia');
-    const innerBg = document.getElementById('city-background');
+    const requestId = ++currentImageRequestID;
+    const isPortrait = isPortraitDevice();
+    const cacheKey = currentItem.città + (isPortrait ? "_V" : "_H");
+
+    const missionLabel = document.getElementById('mission-label');
+    const targetDisplay = document.getElementById('target-display');
+    const targetCuriosity = document.getElementById('target-curiosity');
 
     if (missionLabel) missionLabel.textContent = "DESTINAZIONE:";
     if (targetDisplay) targetDisplay.textContent = currentItem.città.toUpperCase();
-
     if (targetCuriosity) {
         targetCuriosity.textContent = currentItem.curiosità || "";
         targetCuriosity.classList.remove('hidden');
     }
-    if (triviaEl) triviaEl.classList.add('hidden');
 
-    // Funzione helper per applicare l'immagine al DOM
-    const applyImage = (src) => {
-        document.body.style.backgroundImage = `url('${src}')`;
-        document.body.style.backgroundColor = "transparent";
+    const applyBackground = (src) => {
+        if (requestId !== currentImageRequestID) return;
+        const innerBg = document.getElementById('city-background');
         if (innerBg) {
             innerBg.style.backgroundImage = `url('${src}')`;
+            innerBg.style.backgroundColor = "transparent";
             innerBg.style.opacity = "1";
         }
+        document.body.style.backgroundImage = `url('${src}')`;
     };
 
-    // 1. Controlla prima la cache
-    if (imageCache[currentItem.città]) {
-        applyImage(imageCache[currentItem.città]);
+    if (imageCache[cacheKey]) {
+        applyBackground(imageCache[cacheKey]);
     } else {
-        // 2. Se non è in cache, cerca e carica al volo
         const candidates = generateImageFilenameCandidates(currentItem.città);
-        tryLoadImageSequential(candidates, function(foundSrc) {
-            imageCache[currentItem.città] = foundSrc; // Salva per il futuro
-            applyImage(foundSrc);
-        }, function() {
-            // Fallback se nessuna immagine trovata
-            document.body.style.backgroundImage = "none";
-            document.body.style.backgroundColor = "black";
-            if (innerBg) {
-                innerBg.style.backgroundImage = "none";
-                innerBg.style.backgroundColor = "#1a1a1a";
-                innerBg.style.opacity = "1";
+        tryLoadImageSequential(candidates, (foundSrc) => {
+            imageCache[cacheKey] = foundSrc;
+            applyBackground(foundSrc);
+        }, () => {
+            if (requestId === currentImageRequestID) {
+                const innerBg = document.getElementById('city-background');
+                if (innerBg) {
+                    innerBg.style.backgroundImage = "none";
+                    innerBg.style.backgroundColor = "#1a1a1a";
+                }
             }
         });
     }
+}
+
+// --- GESTIONE GIOCO ---
+let gameActive = false, score = 0, lives = 3, gameQueue = [], playerLane = 1, activeGates = [], frameCount = 0, isTurbo = false, lastTime = 0;
+const SPAWN_INTERVAL = 400, NORMAL_SPEED = 0.0019, TURBO_SPEED = 0.03, EXIT_SPEED = 0.055;
+
+const player = document.getElementById('player'), scoreDisplay = document.getElementById('score-display'), livesDisplay = document.getElementById('lives-display'), container = document.getElementById('entities-container');
+
+function startGame() {
+    document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
+    gameActive = true; score = 0; lives = 3; playerLane = 1; isTurbo = false; frameCount = 0;
+    activeGates.forEach(g => g.el.remove()); activeGates = [];
+    gameQueue = [...initialData].sort(() => Math.random() - 0.5);
+    updatePlayerPos(); updateUI(); updateTargetDisplay(); bufferUpcomingCities();
+    lastTime = performance.now(); requestAnimationFrame(gameLoop);
 }
 
 function updateUI() {
     if (scoreDisplay) scoreDisplay.textContent = `Punti: ${score}`;
     if (livesDisplay) livesDisplay.textContent = "❤️".repeat(lives);
 }
+
+function moveLeft() { if (playerLane > 0) { playerLane--; updatePlayerPos(); } }
+function moveRight() { if (playerLane < 2) { playerLane++; updatePlayerPos(); } }
+function updatePlayerPos() { if(player) player.className = `lane-${playerLane}`; }
 
 // --- CONTROLLI ---
 let touchStartY = 0, touchStartX = 0;
@@ -557,15 +393,11 @@ window.addEventListener('keydown', e => {
     if (e.key === "ArrowUp" && !isTurbo) { isTurbo = true; playTurboSound(); }
 });
 
-function moveLeft() { if (playerLane > 0) { playerLane--; updatePlayerPos(); } }
-function moveRight() { if (playerLane < 2) { playerLane++; updatePlayerPos(); } }
-function updatePlayerPos() { if(player) player.className = `lane-${playerLane}`; }
-
-// --- SPAWN E LOOP ---
+// --- LOGICA SPAWN ---
 function spawnGateRow() {
     const activeRows = activeGates.filter(g => !g.hit).length;
-    if (activeRows >= gameQueue.length) return;
-    if (activeGates.length > 0 && activeGates[activeGates.length - 1].progress < 0.40) return;
+    // Se c'è già una riga vicina, non ne facciamo un'altra
+    if (activeRows >= gameQueue.length || (activeGates.length > 0 && activeGates[activeGates.length - 1].progress < 0.40)) return;
 
     const rowEl = document.createElement('div');
     rowEl.className = 'gate-row';
@@ -573,8 +405,6 @@ function spawnGateRow() {
     
     const currentTarget = gameQueue[activeRows]; 
     const targetArea = getMacroArea(currentTarget.regione);
-    let gatesData = [];
-
     let options = [currentTarget.regione];
     const possible = macroRegions[targetArea];
     while (options.length < 3) {
@@ -582,17 +412,14 @@ function spawnGateRow() {
         if (!options.includes(r)) options.push(r);
     }
     options.sort(() => Math.random() - 0.5);
-    gatesData = options.map(reg => ({ text: reg, isCorrect: reg === currentTarget.regione }));
 
-    const gateEls = gatesData.map(d => {
+    const gateEls = options.map(reg => {
         const div = document.createElement('div');
         div.className = 'gate';
-        if(d.text.length > 12) div.classList.add('small-text');
-        div.textContent = d.text;
+        div.textContent = reg;
         rowEl.appendChild(div);
-        return { isCorrect: d.isCorrect, text: d.text };
+        return { isCorrect: reg === currentTarget.regione, text: reg };
     });
-
     activeGates.push({ el: rowEl, progress: 0, gates: gateEls });
 }
 
@@ -601,124 +428,53 @@ function gameLoop(currentTime) {
     const dt = Math.min((currentTime - lastTime) / 16.67, 2);
     lastTime = currentTime;
     frameCount += dt;
-
     if (frameCount >= SPAWN_INTERVAL) { spawnGateRow(); frameCount = 0; }
-
     const speed = isTurbo ? TURBO_SPEED : NORMAL_SPEED;
     for (let i = activeGates.length - 1; i >= 0; i--) {
         let g = activeGates[i];
         g.progress += (g.hit ? EXIT_SPEED : speed) * dt;
         g.el.style.top = (15 + g.progress * 85) + "%";
         g.el.style.transform = `scale(${0.02 + g.progress * 1.2})`;
-        g.el.style.opacity = g.hit ? Math.max(0, 1 - (g.progress - 0.8) * 10) : g.progress * 5;
-        
         if (g.progress >= 0.81 && !g.hit) { g.hit = true; checkCollision(g); }
-        if (g.progress > 1.3) { if (g.hit) isTurbo = false; g.el.remove(); activeGates.splice(i, 1); }
+        if (g.progress > 1.3) { if(g.hit) isTurbo = false; g.el.remove(); activeGates.splice(i, 1); }
     }
     requestAnimationFrame(gameLoop);
 }
 
 function checkCollision(group) {
     const selection = group.gates[playerLane];
-    const els = group.el.querySelectorAll('.gate');
-    
-    // Resetta il contatore per dare spazio al prossimo muro
-    frameCount = SPAWN_INTERVAL - 40; 
-
     if (selection.isCorrect) {
-        // --- RISPOSTA CORRETTA ---
-        score++;
-        playNote(600, 0.1);
-        
-        // Feedback visivo sulla porta attraversata
-        els[playerLane].classList.add('correct-flash');
-        
-        // Rimuovi la città appena indovinata dalla coda
-        gameQueue.shift();
-        
-        // Appena una città viene rimossa, aggiorniamo il buffer per caricare nuove immagini
-        bufferUpcomingCities();
-
-        if (gameQueue.length > 0) {
-            updateTargetDisplay(); // Mostra la nuova città attuale
-        } else { 
-            // Hai finito tutte le città: VITTORIA
-            gameActive = false; 
-            document.getElementById('overlay-win').classList.remove('hidden'); 
-        }
+        score++; playNote(600, 0.1); gameQueue.shift();
+        // RESETA IL TIMER: Forza lo spawn della prossima città immediatamente
+        frameCount = SPAWN_INTERVAL; 
+        if (gameQueue.length > 0) { updateTargetDisplay(); bufferUpcomingCities(); } 
+        else { gameActive = false; document.getElementById('overlay-win').classList.remove('hidden'); }
     } else {
-        // --- RISPOSTA SBAGLIATA ---
-        lives--;
-        playNote(150, 0.3, 'sawtooth');
-        
-        // Trova la porta corretta per mostrarla nel popup
-        const correct = group.gates.find(g => g.isCorrect);
-        showPopupFeedback(correct.text.toUpperCase(), "#F44336");
-        
-        // Feedback visivo errore
-        els[playerLane].classList.add('wrong-flash');
-        
-        // Prendi la città sbagliata e rimettila in fondo alla coda
-        const failed = gameQueue.shift();
-        gameQueue.push(failed);
-        
-        // Aggiorna buffer anche qui (potrebbe essere cambiata la sequenza)
-        bufferUpcomingCities();
-        
+        lives--; playNote(150, 0.3, 'sawtooth');
+        const failed = gameQueue.shift(); gameQueue.push(failed);
+        // RESETA IL TIMER: Forza lo spawn anche se hai sbagliato
+        frameCount = SPAWN_INTERVAL;
         updateTargetDisplay();
-        
-        // Se le vite sono finite: GAME OVER
         if (lives <= 0) endGame(failed);
     }
-    
     updateUI();
 }
-
-
-// --- RILEVAZIONE ORIENTAMENTO / CARTELLA IMMAGINI ---
-function isPortraitDevice() {
-    // Usa matchMedia se disponibile, altrimenti fallback su innerHeight/innerWidth
-    try {
-        return window.matchMedia && window.matchMedia("(orientation: portrait)").matches
-            || window.innerHeight > window.innerWidth;
-    } catch (e) {
-        return window.innerHeight > window.innerWidth;
-    }
-}
-
-let _lastPortraitState = isPortraitDevice();
-
-// Utility: ritorna base dir corretta ("img" o "imgvert")
-function getImageBaseDir() {
-    return isPortraitDevice() ? "imgvert" : "img";
-}
-
-// Al cambiare delle dimensioni/orientamento puliamo la cache e ricarichiamo
-window.addEventListener('resize', () => {
-    const nowPortrait = isPortraitDevice();
-    if (nowPortrait !== _lastPortraitState) {
-        _lastPortraitState = nowPortrait;
-        
-        // IMPORTANTE: Se ruota, le immagini in cache non sono più valide 
-        // (sono del formato sbagliato), quindi svuotiamo la cache.
-        imageCache = {};
-        
-        try {
-            updateTargetDisplay();
-            // Se il gioco è attivo, riempie di nuovo il buffer col nuovo formato
-            if(gameQueue.length > 0) bufferUpcomingCities();
-        } catch (e) {
-            console.log("Aggiornamento sfondo dopo resize fallito:", e);
-        }
-    }
-});
-
 
 function endGame(failedItem) {
     gameActive = false;
     const errorDisplay = document.getElementById('last-error-display');
     const didYouKnow = document.getElementById('did-you-know-text');
-    errorDisplay.innerHTML = `Dovevi portare <br><b>${failedItem.città}</b> in <b>${failedItem.regione}</b>`;
-    didYouKnow.textContent = failedItem.curiosità || "";
+    if (errorDisplay) errorDisplay.innerHTML = `Dovevi portare <br><b>${failedItem.città}</b> in <b>${failedItem.regione}</b>`;
+    if (didYouKnow) didYouKnow.textContent = failedItem.curiosità || "";
     document.getElementById('overlay-over').classList.remove('hidden');
 }
+
+function resetToStart() {
+    gameActive = false;
+    document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
+    document.getElementById('overlay-start').classList.remove('hidden');
+}
+
+window.addEventListener('resize', () => {
+    if (gameActive) updateTargetDisplay();
+});
