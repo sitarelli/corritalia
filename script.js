@@ -660,6 +660,75 @@ function checkCollision(group) {
     updateUI();
 }
 
+
+// --- RILEVAZIONE ORIENTAMENTO / CARTELLA IMMAGINI ---
+function isPortraitDevice() {
+    // Usa matchMedia se disponibile, altrimenti fallback su innerHeight/innerWidth
+    try {
+        return window.matchMedia && window.matchMedia("(orientation: portrait)").matches
+            || window.innerHeight > window.innerWidth;
+    } catch (e) {
+        return window.innerHeight > window.innerWidth;
+    }
+}
+
+let _lastPortraitState = isPortraitDevice();
+
+// Utility: ritorna base dir corretta ("img" o "imgvert")
+function getImageBaseDir() {
+    return isPortraitDevice() ? "imgvert" : "img";
+}
+
+// Al cambiare delle dimensioni/orientamento ricarichiamo lo sfondo corrente (se il tipo cambia)
+window.addEventListener('resize', () => {
+    const nowPortrait = isPortraitDevice();
+    if (nowPortrait !== _lastPortraitState) {
+        _lastPortraitState = nowPortrait;
+        // Riprova a caricare lo sfondo attuale nella nuova versione (verticale/orizzontale)
+        // Se il gioco è attivo o semplicemente per aggiornare la UI:
+        try {
+            updateTargetDisplay();
+        } catch (e) {
+            // fail silently
+            console.log("Aggiornamento sfondo dopo resize fallito:", e);
+        }
+    }
+});
+
+// --- FUNZIONE NOMI FILE: Versione Aggiornata (Priorità WEBP) ---
+// Ora usa getImageBaseDir() per decidere se cercare in 'img' oppure 'imgvert'
+function generateImageFilenameCandidates(nomeCittaRaw) {
+    if (!nomeCittaRaw) return [];
+
+    const baseDir = getImageBaseDir();
+
+    // 1. Togli la stellina
+    let clean = nomeCittaRaw.replace(/✪/g, '').trim();
+
+    // 2. Togli gli accenti
+    clean = removeDiacritics(clean).toLowerCase();
+
+    // 3. GENERIAMO IL NOME "PULITO" (solo lettere e numeri)
+    // Esempio: "L'Aquila" diventa "laquila"
+    const simpleName = clean.replace(/[^a-z0-9]/g, "");
+
+    // Generiamo le varianti con priorità ai .webp
+    return [
+        `${baseDir}/${simpleName}.webp`,               // laquila.webp
+        `${baseDir}/${simpleName}.jpg`,                // laquila.jpg
+        `${baseDir}/${simpleName}.jpeg`,               // laquila.jpeg
+        `${baseDir}/${clean.replace(/'/g, " ")}.webp`, // l aquila.webp
+        `${baseDir}/${clean.replace(/'/g, " ")}.jpg`,  // l aquila.jpg
+        `${baseDir}/${clean.replace(/ /g, "_")}.webp`, // l_aquila.webp
+        `${baseDir}/${clean.replace(/ /g, "_")}.jpg`   // l_aquila.jpg
+    ];
+}
+
+
+
+
+
+
 function endGame(failedItem) {
     gameActive = false;
     const errorDisplay = document.getElementById('last-error-display');
