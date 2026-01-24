@@ -193,7 +193,7 @@ function removeDiacritics(str) {
     return str.normalize('NFD').replace(/[\u0300-\u036f]/g, "");
 }
 
-// --- FUNZIONE NOMI FILE: Versione Aggressiva ---
+// --- FUNZIONE NOMI FILE: Versione Aggiornata (Priorità WEBP) ---
 function generateImageFilenameCandidates(nomeCittaRaw) {
     if (!nomeCittaRaw) return [];
     
@@ -207,38 +207,91 @@ function generateImageFilenameCandidates(nomeCittaRaw) {
     // Esempio: "L'Aquila" diventa "laquila"
     const simpleName = clean.replace(/[^a-z0-9]/g, "");
     
+    // Restituisce array con priorità ai file .webp
     return [
-        `img/${simpleName}.jpg`,        // Priorità 1: laquila.jpg
-        `img/${simpleName}.jpeg`,
-        `img/${clean.replace(/'/g, " ")}.jpg`, // Backup: l aquila.jpg
-        `img/${clean.replace(/ /g, "_")}.jpg`  // Backup: l_aquila.jpg
+        `img/${simpleName}.webp`,               // Priorità 1: laquila.webp
+        `img/${simpleName}.jpg`,                // Priorità 2: laquila.jpg
+        `img/${simpleName}.jpeg`,               // Priorità 3: laquila.jpeg
+        `img/${clean.replace(/'/g, " ")}.webp`, // Priorità 4: l aquila.webp
+        `img/${clean.replace(/'/g, " ")}.jpg`,  // Priorità 5: l aquila.jpg
+        `img/${clean.replace(/ /g, "_")}.webp`, // Priorità 6: l_aquila.webp
+        `img/${clean.replace(/ /g, "_")}.jpg`   // Priorità 7: l_aquila.jpg
     ];
 }
 
-// --- CARICAMENTO IMMAGINI ---
+
+// --- CARICAMENTO IMMAGINI CON TIMEOUT ---
 function tryLoadImageSequential(candidates, onSuccess, onFail) {
     if (!candidates || candidates.length === 0) { onFail(); return; }
     let i = 0;
+    
     function tryOne() {
         if (i >= candidates.length) { onFail(); return; }
+        
         const img = new Image();
         const src = candidates[i];
-        img.src = src;
+        let timeoutId;
+        let loaded = false;
+        
+        // Timeout di 3 secondi per ogni immagine
+        timeoutId = setTimeout(() => {
+            if (!loaded) {
+                console.log(`Timeout caricamento: ${src}`);
+                i++;
+                tryOne();
+            }
+        }, 3000);
+        
         img.onload = function() {
-            onSuccess(src);
+            if (!loaded) {
+                loaded = true;
+                clearTimeout(timeoutId);
+                onSuccess(src);
+            }
         };
+        
         img.onerror = function() {
-            i++;
-            setTimeout(tryOne, 0);
+            if (!loaded) {
+                loaded = true;
+                clearTimeout(timeoutId);
+                console.log(`Errore caricamento: ${src}`);
+                i++;
+                tryOne();
+            }
         };
+        
+        img.src = src;
     }
     tryOne();
 }
 
-// --- FUNZIONE RIAVVIO BLINDATA ---
-function resetToStart() {
-    location.reload(); // Ricarica la pagina per evitare qualsiasi errore residuo
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // --- SETUP ELEMENTI GRAFICI ---
 function createGameElements() {
@@ -392,7 +445,7 @@ function startGame() {
     updateUI();
     
     updateTargetDisplay(); // Carica la città attuale (indice 0)
-    preloadNextTarget();   // <--- AGGIUNGI QUESTA RIGA: Inizia a scaricare la città successiva (indice 1)
+    preloadNextTarget();   // Inizia a scaricare la città successiva (indice 1)
 
     spawnGateRow();
     lastTime = performance.now();
@@ -550,7 +603,7 @@ function checkCollision(group) {
         
         if (gameQueue.length > 0) {
             updateTargetDisplay(); // Mostra la nuova città attuale
-            preloadNextTarget();   // <--- AGGIUNTA: Scarica già la prossima immagine in background!
+            preloadNextTarget();   // Scarica già la prossima immagine in background!
         } else { 
             // Hai finito tutte le città: VITTORIA
             gameActive = false; 
