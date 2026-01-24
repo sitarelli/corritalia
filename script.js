@@ -327,7 +327,7 @@ function createGameElements() {
             background-color: #333;
             background-size: cover;
             background-position: center bottom;
-            transition: background-image 0.5s ease-in-out;
+            transition: none;
         `;
         gameViewport.prepend(bgDiv);
     }
