@@ -31,6 +31,33 @@ body {
     touch-action: none;
 }
 
+
+/* Transizione fluida per il movimento verticale del player */
+#player {
+    transition: left 0.15s ease-out, bottom 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* EFFETTO TURBO: Spostamento su e Bagliore */
+#player.turbo-active {
+    bottom: 210px !important; /* 180px base + 30px */
+}
+
+#player.turbo-active .car-sprite {
+    filter: drop-shadow(0 0 15px #FFD93D) brightness(1.3);
+    animation: rumble 0.05s infinite alternate; /* Vibrazione più veloce */
+}
+
+/* EFFETTO SBANDATA (CRASH): Movimento destra/sinistra */
+.crash-active {
+    animation: crash-skid 0.5s ease-in-out 4 !important; 
+}
+
+@keyframes crash-skid {
+    0% { transform: translateX(-65%) rotate(-10deg); }
+    50% { transform: translateX(-35%) rotate(10deg); }
+    100% { transform: translateX(-50%) rotate(0deg); }
+}
+
 #feedback-pop {
     position: absolute;
     top: 40%; left: 50%;

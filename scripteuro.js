@@ -312,15 +312,22 @@ window.addEventListener('touchend', e => {
     if (!gameActive) return;
     const endX = e.changedTouches[0].clientX;
     const endY = e.changedTouches[0].clientY;
-    if (touchStartY - endY > 60) { if (!isTurbo) { isTurbo = true; playTurboSound(); } } else { if (endX < window.innerWidth / 2) moveLeft(); else moveRight(); }
+    if (touchStartY - endY > 60) { if (!isTurbo) { isTurbo = true; playExternalSound('accelera.mp3'); player.classList.add('turbo-active')} } else { if (endX < window.innerWidth / 2) moveLeft(); else moveRight(); }
 }, { passive: false });
 
 window.addEventListener('keydown', e => {
     if (!gameActive) return;
     if (e.key === "ArrowLeft") moveLeft();
     if (e.key === "ArrowRight") moveRight();
-    if (e.key === "ArrowUp" && !isTurbo) { isTurbo = true; playTurboSound(); }
+    if (e.key === "ArrowUp" && !isTurbo) { isTurbo = true; playExternalSound('accelera.mp3');player.classList.add('turbo-active'); }
 });
+
+// Funzione per riprodurre file MP3 esterni
+function playExternalSound(filename) {
+    const audio = new Audio(filename);
+    audio.play().catch(e => console.log("Audio play blocked by browser"));
+}
+
 
 // --- LOGICA SPAWN ---
 function spawnGateRow() {
@@ -367,7 +374,7 @@ function gameLoop(currentTime) {
         g.el.style.top = (15 + g.progress * 85) + "%";
         g.el.style.transform = `scale(${0.02 + g.progress * 1.2})`;
         if (g.progress >= 0.81 && !g.hit) { g.hit = true; checkCollision(g); }
-        if (g.progress > 1.3) { if(g.hit) isTurbo = false; g.el.remove(); activeGates.splice(i, 1); }
+        if (g.progress > 1.3) { if(g.hit) isTurbo = false; player.classList.remove('turbo-active'); g.el.remove(); activeGates.splice(i, 1); }
     }
     requestAnimationFrame(gameLoop);
 }
@@ -381,7 +388,17 @@ function checkCollision(group) {
         if (gameQueue.length > 0) { updateTargetDisplay(); bufferUpcomingCities(); } 
         else { gameActive = false; document.getElementById('overlay-win').classList.remove('hidden'); }
     } else {
-        lives--; playNote(150, 0.3, 'sawtooth');
+        lives--; 
+playExternalSound('sbanda.mp3');
+
+
+
+
+player.classList.add('crash-active');
+        setTimeout(() => {
+            player.classList.remove('crash-active');
+        }, 1000); // Ritorna normale dopo 1 secondo
+
         const failed = gameQueue.shift(); 
         
         const feedback = document.getElementById('game-feedback');
