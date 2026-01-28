@@ -239,6 +239,14 @@ function initRoad() {
 // --- LOGICA DI GIOCO ---
 
 function startGame() {
+
+
+    // GESTIONE RICHIESTA SCHERMO INTERO FULLSCREEN:
+    if (document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(err => {
+            console.log("Errore fullscreen:", err);
+        });
+    }
     state.isPlaying = true; 
     state.score = 0; 
     state.lives = 3; 
