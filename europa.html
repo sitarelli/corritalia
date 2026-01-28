@@ -3,130 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>CorriEuropa 50 Capitali europee</title>
+    <title>CorriEuropa 50 Capitali</title>
+    
     <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Oswald:wght@500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style-euro.css">
     
-    <meta property="og:title" content="CorriEuropa 50 Capitali di stato">
-    <meta property="og:description" content="Fatti una partita a questo gioco revival">
-    <meta property="og:image" content="https://sitarelli.github.io/corritalia/corrieuropa.jpg">
-    <meta property="og:image:type" content="image/jpeg">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">    
-    <meta property="og:url" content="https://sitarelli.github.io/corritalia/corrieuropa.jpg">
-    <meta name="twitter:card" content="summary_large_image">
-
+    <meta property="og:title" content="CorriEuropa">
+    <meta property="og:description" content="Guida attraverso l'Europa!">
+    <meta property="og:image" content="corrieuropa.jpg">
     <link rel="icon" type="image/png" href="faviconeuro.png">
 
     <style>
-        /* 1. SFONDO SUL BODY (Visibile a tutto schermo) */
         body {
-            background-color: #000;
+            background-color: #111;
             margin: 0;
             overflow: hidden;
             height: 100vh;
-            
-            /* L'immagine appare qui */
-            background-image: url('sfondo-esterno-euro.jpg');
+            /* Questo è lo sfondo che dicevi mancava */
+            background-image: url('sfondo-esterno-euro.jpg'); 
             background-size: cover;
             background-position: center;
-            background-repeat: no-repeat;
-            
             display: flex;
             justify-content: center;
             align-items: center;
         }
 
-        /* 2. FORZIAMO IL CONTENITORE DI GIOCO AD ESSERE TRASPARENTE INIZIALMENTE */
-        #game-viewport {
-            background-color: transparent !important;
-            background: none !important;
-        }
-
-        /* 3. OVERLAY START DEL GIOCO (INTERNO) */
-        #overlay-start {
-            background: none !important; /* Nessun colore di sfondo */
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            z-index: 100 !important;
-        }
-
-        /* Ombra per leggere il testo sopra l'immagine */
-        #overlay-start h1, 
-        #overlay-start p {
-            text-shadow: 2px 2px 8px rgba(0,0,0, 1);
-        }
-
-        /* --- LA PARTE MAGICA (Gestione trasparenza gioco) --- */
+        /* Nasconde il gioco finché non si preme start */
         #game-viewport:has(#overlay-start:not(.hidden)) > div:not(#overlay-start) {
             opacity: 0 !important;
             pointer-events: none !important;
         }
-
-        /* Utility */
-        .hidden { display: none !important; }
-
-        /* --- NUOVO STILE PER IL PULSANTE FULLSCREEN (ESTERNO) --- */
-        #start-screen-fullscreen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.85); /* Sfondo scuro semitrasparente */
-            z-index: 9999; /* Sopra a tutto il resto */
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            text-align: center;
-            font-family: 'Oswald', sans-serif;
-        }
-
-        .fs-btn {
-            margin-top: 30px;
-            padding: 20px 50px;
-            font-size: 24px;
-            cursor: pointer;
-            background-color: #e74c3c; /* Rosso acceso */
-            color: white;
-            border: none;
-            border-radius: 50px;
-            font-weight: bold;
-            font-family: 'Fredoka One', cursive;
-            box-shadow: 0 0 20px rgba(231, 76, 60, 0.6);
-            transition: transform 0.2s;
-            animation: pulse 2s infinite;
-        }
-        .fs-btn:active { transform: scale(0.95); }
-
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
-        }
-
-        /* Nascondi fullscreen button su schermi verticali se necessario, o lascialo sempre */
     </style>
 </head>
 
 <body>
 
-    <div id="start-screen-fullscreen">
-        <h1 style="font-family: 'Fredoka One'; font-size: 3rem; margin-bottom: 10px; color: #f1c40f;">CORRIEUROPA</h1>
-        <p style="font-size: 1.2rem;">Attiva lo schermo intero per giocare al meglio</p>
-        <button class="fs-btn" onclick="startGameFullscreen()">SCHERMO INTERO</button>
-    </div>
-
     <div id="game-viewport">
+        <div id="particles-container"></div>
+
         <div id="feedback-pop" class="hidden"></div>
 
         <div class="hud">
-            <div id="score-display">Punti: 0</div>
+            <div id="score-display">PUNTI: 0</div>
             <div id="lives-display">❤️❤️❤️</div>
         </div>
 
@@ -137,29 +55,27 @@
         </div>
 
         <div class="mission-bar">
-            <p id="mission-label">DESTINAZIONE:</p>
             <h1 id="target-display">---</h1>
-            <p id="target-curiosity" class="hidden">...</p>
         </div>
 
         <div id="overlay-start" class="overlay">
-            <h1>CORRIEUROPA</h1>
-            <p id="start-instructions">
-                Apparirà il nome di una <b>CITTÀ</b>.<br>
-                Guida verso la sua <b>REGIONE</b>.<br><br>
-                Usa le frecce o trascina per sterzare.<br>
-                <b>Freccia SU</b> per il Turbo!
+            <h1 style="color: #FFD93D; font-size: 3.5rem;">CORRI EUROPA</h1>
+            <p id="start-instructions" style="font-family: 'Oswald'; font-size: 1.3rem;">
+                Apparirà una <b>CITTÀ</b>.<br>
+                Guida verso la sua <b>NAZIONE</b>.<br><br>
+                Usa le frecce o tocca per sterzare.<br>
+                <b>Freccia SU</b> per il TURBO!
             </p>
-            <button onclick="startGame()">ACCENDI I MOTORI</button>
+            <button onclick="startGame()">PARTI</button>
         </div>
 
         <div id="overlay-over" class="overlay hidden">
-            <h1>GAME OVER 💀</h1>
+            <h1 style="color: #FF5252;">GAME OVER</h1>
             <div id="error-container">
-                <p id="last-error-display" style="margin: 10px 0; font-size: 1.2rem; color: #FFD93D;"></p>
-                <div id="did-you-know-box">
+                <p id="last-error-display" style="margin: 10px 0; font-size: 1.4rem; color: #FFD93D;"></p>
+                <div id="did-you-know-box" style="margin-top: 20px; padding: 15px; border: 1px solid #555; background: rgba(0,0,0,0.5); border-radius: 10px;">
                     <span style="font-size: 0.9rem; text-transform: uppercase; color: #aaa;">Lo sapevi che...</span><br>
-                    <p id="did-you-know-text" style="font-size: 1rem; font-style: italic; margin-top: 5px;">...</p>
+                    <p id="did-you-know-text" style="font-size: 1.1rem; font-style: italic; margin-top: 5px; color: #fff;">...</p>
                 </div>
             </div>
             <button onclick="resetToStart()">RIPROVA</button>
@@ -167,28 +83,10 @@
 
         <div id="overlay-win" class="overlay hidden">
             <h1>CAMPIONE! 🏆</h1>
-            <p>Hai completato il giro d'Europa!</p>
+            <p>Hai completato il tour europeo!</p>
             <button onclick="resetToStart()">GIOCA ANCORA</button>
         </div>
     </div>
-
-    <script>
-        function startGameFullscreen() {
-            const elem = document.documentElement;
-            
-            // Richiedi Fullscreen
-            if (elem.requestFullscreen) {
-                elem.requestFullscreen();
-            } else if (elem.webkitRequestFullscreen) { /* Safari */
-                elem.webkitRequestFullscreen();
-            } else if (elem.msRequestFullscreen) { /* IE11 */
-                elem.msRequestFullscreen();
-            }
-
-            // Nascondi il pulsante fullscreen e mostra il gioco
-            document.getElementById('start-screen-fullscreen').style.display = 'none';
-        }
-    </script>
 
     <script src="scripteuro.js"></script>
 </body>
