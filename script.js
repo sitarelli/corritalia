@@ -302,7 +302,9 @@ function createGameElements() {
         const feedbackDiv = document.createElement('div');
         feedbackDiv.id = 'game-feedback';
         feedbackDiv.className = 'hidden';
-        feedbackDiv.style.cssText = `position: absolute; top: 30%; left: 50%; transform: translateX(-50%); z-index: 90; color: #ffeb3b; font-size: 1.2rem; font-weight: bold; text-align: center; text-shadow: 2px 2px 4px black; background: rgba(183, 28, 28, 0.8); padding: 10px 20px; border-radius: 8px; pointer-events: none; transition: opacity 0.3s;`;
+
+feedbackDiv.style.cssText = `position: absolute; top: 15%; left: 50%; transform: translateX(-50%); z-index: 90; color: #ffeb3b; font-size: 1.2rem; font-weight: bold; text-align: center; text-shadow: 2px 2px 4px black; background: rgba(100, 28, 28, 0.8); padding: 10px 20px; border-radius: 8px; pointer-events: none; transition: opacity 0.3s;`;
+
         gameViewport.appendChild(feedbackDiv);
     }
 }
@@ -346,11 +348,12 @@ function updateTargetDisplay() {
     const targetCuriosity = document.getElementById('target-curiosity');
 
     if (missionLabel) missionLabel.textContent = "DESTINAZIONE:";
-    if (targetDisplay) targetDisplay.textContent = currentItem.città.toUpperCase();
-    if (targetCuriosity) {
-        targetCuriosity.textContent = currentItem.curiosità || "";
-        targetCuriosity.classList.remove('hidden');
-    }
+ 
+if (targetDisplay) targetDisplay.textContent = currentItem.città.toUpperCase();
+    // if (targetCuriosity) {
+    //     targetCuriosity.textContent = currentItem.curiosità || "";
+    //     targetCuriosity.classList.remove('hidden');
+    // }
 
     const applyBackground = (src) => {
         if (requestId !== currentImageRequestID) return;
@@ -440,7 +443,10 @@ window.addEventListener('keydown', e => {
     if (!gameActive) return;
     if (e.key === "ArrowLeft") moveLeft();
     if (e.key === "ArrowRight") moveRight();
-    if (e.key === "ArrowUp" && !isTurbo) { isTurbo = true; playTurboSound(); }
+   if (e.key === "ArrowUp" && !isTurbo) { isTurbo = true; playTurboSound(); spawnSmoke(); }
+
+
+
 });
 
 // --- LOGICA SPAWN ---
@@ -471,7 +477,7 @@ function spawnGateRow() {
         div.className = 'gate';
         div.textContent = reg;
         rowEl.appendChild(div);
-        return { isCorrect: reg === currentTarget.regione, text: reg };
+        return { isCorrect: reg === currentTarget.regione, text: reg, el: div }; // Aggiunto el: div
     });
     activeGates.push({ el: rowEl, progress: 0, gates: gateEls });
 }
@@ -481,8 +487,9 @@ function gameLoop(currentTime) {
     const dt = Math.min((currentTime - lastTime) / 16.67, 2);
     lastTime = currentTime;
     frameCount += dt;
-    if (frameCount >= SPAWN_INTERVAL) { spawnGateRow(); frameCount = 0; }
-    const speed = isTurbo ? TURBO_SPEED : NORMAL_SPEED;
+    if (frameCount >= SPAWN_INTERVAL) { spawnGateRow(); frameCount = 0; }const speed = isTurbo ? TURBO_SPEED : NORMAL_SPEED;
+    // Se il turbo è attivo, genera 2 nuvole di fumo PER OGNI FRAME (scia densissima)
+    if (isTurbo) { spawnSmoke(); spawnSmoke(); }
     for (let i = activeGates.length - 1; i >= 0; i--) {
         let g = activeGates[i];
         g.progress += (g.hit ? EXIT_SPEED : speed) * dt;
@@ -502,8 +509,9 @@ function checkCollision(group) {
         frameCount = SPAWN_INTERVAL; 
         if (gameQueue.length > 0) { updateTargetDisplay(); bufferUpcomingCities(); } 
         else { gameActive = false; document.getElementById('overlay-win').classList.remove('hidden'); }
-    } else {
+   } else {
         lives--; playNote(150, 0.3, 'sawtooth');
+        triggerCrashEffects(selection.el, playerLane); // Effetti visivi impatto
         const failed = gameQueue.shift(); 
         
         // --- SISTEMAZIONE Feedback a video: [Nome Città] sbagliato! ---
@@ -524,6 +532,45 @@ function checkCollision(group) {
     }
     updateUI();
 }
+A
+
+// --- NUOVE FUNZIONI EFFETTI ---
+function spawnSmoke() {
+    const smoke = document.createElement('div');
+    smoke.classList.add('smoke-particle');
+    const player = document.getElementById('player');
+    const viewport = document.getElementById('game-viewport');
+    
+    const rect = player.getBoundingClientRect();
+    const viewRect = viewport.getBoundingClientRect();
+    
+    // Calcolo centro moto
+    const centerX = rect.left - viewRect.left + rect.width / 2;
+    // Aggiungo variazione casuale di +/- 15px a destra/sinistra per effetto "nuvola"
+    const randomOffset = (Math.random() - 0.5) * 30; 
+
+    smoke.style.left = (centerX + randomOffset) + 'px';
+    smoke.style.top = (rect.bottom - viewRect.top - 20) + 'px';
+    
+    viewport.appendChild(smoke);
+    // Rimuovi dopo 1.2 secondi (coerente con il CSS modificato prima)
+    setTimeout(() => smoke.remove(), 1200);
+}
+
+function triggerCrashEffects(gateElement, laneIndex) {
+    // 1. Vibrazione Moto
+    const player = document.getElementById('player');
+    player.classList.add('shake-effect');
+    setTimeout(() => player.classList.remove('shake-effect'), 400);
+
+    // 2. Cartello vola via
+    if (gateElement) {
+        if (laneIndex === 0) gateElement.classList.add('fly-left');
+        else if (laneIndex === 1) gateElement.classList.add('fly-up');
+        else if (laneIndex === 2) gateElement.classList.add('fly-right');
+    }
+}
+// -----------------------------
 
 function endGame(failedItem) {
     gameActive = false;

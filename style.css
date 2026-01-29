@@ -62,7 +62,7 @@ body {
 
 #player {
     position: absolute;
-    bottom: 20px; left: 50%;
+    bottom: 60px; left: 50%;
     width: 110px; height: 110px;
     transform: translateX(-50%);
     transition: left 0.15s ease-out;
@@ -88,6 +88,42 @@ body {
 #player.lane-2 { left: 70%; }
 
 @keyframes rumble { from { transform: translateY(0); } to { transform: translateY(-2px); } }
+
+
+/* --- NUOVI EFFETTI: Fumo, Scossone, Volo Cartelli --- */
+
+/* FUMO */
+.smoke-particle {
+    position: absolute; width: 12px; height: 12px; 
+    background: #888; border-radius: 50%; 
+    opacity: 0.8; pointer-events: none; z-index: 40; 
+    animation: smoke-anim 0.6s forwards ease-out;
+}
+@keyframes smoke-anim {
+    0% { transform: translate(-50%, 0) scale(1); opacity: 0.8; }
+    100% { transform: translate(-50%, 100px) scale(3); opacity: 0; }
+}
+
+/* SCOSSONE MOTO (Errore) */
+.shake-effect .car-sprite {
+    animation: bike-shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+    filter: sepia(1) hue-rotate(-50deg) saturate(3); /* Diventa rossa per un attimo */
+}
+@keyframes bike-shake {
+    10%, 90% { transform: translate3d(-4px, 0, 0); }
+    20%, 80% { transform: translate3d(4px, 0, 0); }
+    30%, 50%, 70% { transform: translate3d(-8px, 0, 0); }
+    40%, 60% { transform: translate3d(8px, 0, 0); }
+}
+
+/* CARTELLI CHE VOLANO VIA */
+.gate.fly-left { animation: fly-left 0.5s forwards ease-out; border-color: red; background: #ffcccc; }
+.gate.fly-up { animation: fly-up 0.5s forwards ease-out; border-color: red; background: #ffcccc; }
+.gate.fly-right { animation: fly-right 0.5s forwards ease-out; border-color: red; background: #ffcccc; }
+
+@keyframes fly-left { to { transform: translateX(-150vw) rotate(-45deg); opacity: 0; } }
+@keyframes fly-up { to { transform: translateY(-100vh) rotate(180deg); opacity: 0; } }
+@keyframes fly-right { to { transform: translateX(150vw) rotate(45deg); opacity: 0; } }
 
 .gate-row {
     position: absolute; width: 100%;
@@ -150,6 +186,8 @@ body {
         1px  1px 0px #000;
     
     filter: drop-shadow(0px 5px 10px rgba(0,0,0,0.5));
+/* NASCONDE CURIOSITÀ */
+#target-curiosity, #target-curiosity-box { display: none !important; }
 }
 
 /* Nuovo: curiosità sotto il nome della città */
