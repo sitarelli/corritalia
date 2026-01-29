@@ -394,6 +394,15 @@ const player = document.getElementById('player'), scoreDisplay = document.getEle
 function startGame() {
     document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
     
+
+// AVVIO MUSICA
+    const bgMusic = document.getElementById('bg-music');
+    if (bgMusic) { 
+        bgMusic.volume = 0.3; // Volume al 30% per non coprire i suoni
+        bgMusic.currentTime = 0;
+        bgMusic.play().catch(e => console.log("Audio autoplay bloccato:", e)); 
+    }
+
     // Mostra caricamento e reset barra
     const loader = document.getElementById('loading-overlay');
     const barFill = document.getElementById('loading-bar-fill');
@@ -588,6 +597,11 @@ function endGame(failedItem) {
 
 function resetToStart() {
     gameActive = false;
+
+// STOP MUSICA
+    const bgMusic = document.getElementById('bg-music');
+    if (bgMusic) bgMusic.pause();
+
     document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
     document.getElementById('overlay-start').classList.remove('hidden');
 }
