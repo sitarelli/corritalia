@@ -133,16 +133,20 @@ body {
 
 .gate {
     width: 31%;
-    background: rgba(255, 255, 255, 0.98);
-    border: 3px solid #000;
-    border-radius: 8px;
+    
+    /* --- NUOVO STILE BLU & BIANCO --- */
+    background-color: #1565C0; /* Blu intenso tipo cartello stradale */
+    color: white;              /* Scritta bianca */
+    border: 4px solid white;   /* Bordo bianco spesso */
+    border-radius: 15px;       /* Angoli molto arrotondati */
+    box-shadow: 0 6px 12px rgba(0,0,0,0.4); /* Ombra morbida per staccare dal fondo */
+    
+    /* Layout del testo (Mantenuto per centratura e font) */
     padding: 5px 2px;
     text-align: center;
-    box-shadow: 0 5px 0 #333;
-    color: #000;
     font-family: 'Oswald', sans-serif;
     font-weight: 700;
-    font-size: 1.4rem; /* Leggermente ridotto per gestire nomi città lunghi */
+    font-size: 1.4rem; 
     text-transform: uppercase;
     line-height: 0.95;
     letter-spacing: -0.5px;
