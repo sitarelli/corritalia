@@ -17,11 +17,13 @@ body {
 }
 
 #game-viewport {
-    position: relative;
+  position: fixed; /* Blocca il gioco allo schermo */
+    top: 0; bottom: 0; /* Si ancora sopra e sotto */
+    height: 100%;      /* Usa tutto lo spazio disponibile */
     box-shadow: 0 0 50px rgba(0,0,0,0.8);
     width: 100%;
     max-width: 500px;
-    height: 100vh;
+
     overflow: hidden;
     background-image: url('background.jpg');
     background-position: center top;
@@ -29,6 +31,10 @@ body {
     border-left: 2px solid #000;
     border-right: 2px solid #000;
     touch-action: none;
+
+
+
+
 }
 
 #feedback-pop {

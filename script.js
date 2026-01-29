@@ -393,7 +393,11 @@ const player = document.getElementById('player'), scoreDisplay = document.getEle
 
 function startGame() {
     document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
-    
+    // --- FORZA FULLSCREEN REALE (PC & Android) ---
+    const elem = document.documentElement;
+    if (elem.requestFullscreen) elem.requestFullscreen().catch(err => {});
+    else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen(); // Safari/iOS vecchi
+    else if (elem.msRequestFullscreen) elem.msRequestFullscreen(); // IE/Edge
 
 // AVVIO MUSICA
     const bgMusic = document.getElementById('bg-music');
@@ -606,6 +610,24 @@ function resetToStart() {
     document.getElementById('overlay-start').classList.remove('hidden');
 }
 
-window.addEventListener('resize', () => {
+// --- GESTIONE FULLSCREEN ANDROID ROBUSTA ---
+function handleResize() {
+    // Calcola l'altezza reale visibile (senza barre browser)
+    const vh = window.innerHeight;
+    document.getElementById('game-viewport').style.height = vh + 'px';
+    
+    // Aggiorna elementi di gioco se necessario
     if (gameActive) updateTargetDisplay();
+    
+    // Scrolla via la barra degli indirizzi (hack classico)
+    window.scrollTo(0, 1);
+}
+
+window.addEventListener('resize', handleResize);
+window.addEventListener('orientationchange', () => {
+    // Ritardo per dare tempo ad Android di girare lo schermo
+    setTimeout(handleResize, 200); 
 });
+
+// Avvia subito il fix al caricamento
+handleResize();
