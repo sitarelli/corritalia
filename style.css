@@ -62,7 +62,7 @@ body {
 
 #player {
     position: absolute;
-    bottom: 180px; left: 50%;
+    bottom: 20px; left: 50%;
     width: 110px; height: 110px;
     transform: translateX(-50%);
     transition: left 0.15s ease-out;
@@ -71,12 +71,18 @@ body {
 }
 .car-sprite {
     width: 100%; height: 100%;
-    background-image: url('car.png');
+    /* Immagine gestita dalle classi lane-X qui sotto */
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center bottom;
     animation: rumble 0.1s infinite alternate;
 }
+
+/* LOGICA VESPA: 3 Sprite per le 3 Posizioni */
+#player.lane-0 .car-sprite { background-image: url('sprite/vespa_left.png'); }   /* Sinistra */
+#player.lane-1 .car-sprite { background-image: url('sprite/vespa_centro.png'); } /* Centro */
+#player.lane-2 .car-sprite { background-image: url('sprite/vespa_right.png'); }  /* Destra */
+
 #player.lane-0 { left: 30%; }
 #player.lane-1 { left: 50%; }
 #player.lane-2 { left: 70%; }
@@ -115,18 +121,36 @@ body {
 .wrong-flash { background-color: #F44336 !important; color: white; border-color: #B71C1C; }
 
 .mission-bar {
-    position: absolute; bottom: 99px;
-    width: 90%; left: 5%;
-    background: rgba(255, 217, 61, 0.9);
-    border: 4px solid #333;
-    border-radius: 15px;
-    padding: 12px;
+    position: absolute; 
+    top: 40%; left: 50%; /* Al centro dello schermo */
+    transform: translate(-50%, -50%);
+    width: 100%;
     text-align: center;
     z-index: 110;
-    box-shadow: 0 8px 0 rgba(0,0,0,0.3);
+    pointer-events: none; /* Non cliccabile */
+    /* Nessun cartello/sfondo */
+    background: none; border: none; box-shadow: none;
 }
-.mission-bar p { font-size: 0.8rem; margin-bottom: 4px; color: #555; font-weight: bold;}
-.mission-bar h1 { color: #d32f2f; font-size: 2rem; line-height: 1; }
+/* Nascondiamo etichette piccole e curiosità per pulizia */
+.mission-bar p { display: none; } 
+.mission-bar h1 { 
+    font-family: 'Fredoka One', cursive; /* Font paffuto e fumettoso */
+    color: #ffeb3b;                     /* Giallo acceso */
+    font-size: 2.5rem;                  /* Dimensione grande */
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    line-height: 1.2;
+    
+    /* Effetto contorno fumetto (nero) per farlo risaltare */
+    text-shadow: 
+        3px 3px 0px #000, 
+       -1px -1px 0px #000,  
+        1px -1px 0px #000,
+       -1px  1px 0px #000,
+        1px  1px 0px #000;
+    
+    filter: drop-shadow(0px 5px 10px rgba(0,0,0,0.5));
+}
 
 /* Nuovo: curiosità sotto il nome della città */
 #target-curiosity {
