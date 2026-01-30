@@ -506,8 +506,8 @@ function gameLoop(currentTime) {
     for (let i = activeGates.length - 1; i >= 0; i--) {
         let g = activeGates[i];
         g.progress += (g.hit ? EXIT_SPEED : speed) * dt;
-        g.el.style.top = (15 + g.progress * 85) + "%";
-        g.el.style.transform = `scale(${0.02 + g.progress * 1.2})`;
+        g.el.style.top = (35 + g.progress * 60) + "%";
+        g.el.style.transform = `scale(${0.01 + g.progress * 1.2})`;
         if (g.progress >= 0.81 && !g.hit) { g.hit = true; checkCollision(g); }
         if (g.progress > 1.3) { if(g.hit) isTurbo = false; g.el.remove(); activeGates.splice(i, 1); }
     }
