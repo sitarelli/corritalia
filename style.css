@@ -59,11 +59,12 @@ body {
 
 .hud {
     position: absolute;
-    top: env(safe-area-inset-top, 20px);
+      top: 15px;
     width: 100%; padding: 0 20px;
     display: flex; justify-content: space-between;
     z-index: 100;
     color: white; text-shadow: 2px 2px 4px #000;
+    pointer-events: none; /* Lascia cliccare attraverso l'HUD se necessario */
 }
 
 #player {
@@ -267,3 +268,22 @@ button:active { transform: translateY(4px); box-shadow: 0 2px 0 #1B5E20; }
     border: 1px dashed #aaa;
     max-width: 90%;
 }
+
+/* Tasto Muto */
+#mute-btn {
+    position: absolute; top: 50px; right: 10px;
+    font-size: 2rem; /* Icona ben visibile */
+
+    /* RESET TOTALE stile bottone generico */
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important; /* Rimuove il bordo 3D verde */
+    padding: 0 !important;       /* Rimuove lo spazio extra attorno */
+    margin: 0 !important;
+    outline: none !important;
+
+    cursor: pointer; z-index: 250;
+    filter: drop-shadow(0 0 2px black); /* Ombra solo sull'icona per leggerla */
+    transition: transform 0.1s;
+}
+#mute-btn:active { transform: scale(0.9); }

@@ -168,6 +168,7 @@ function getMacroArea(regione) {
 }
 
 let imageCache = {}; 
+let isMuted = false;
 const PRELOAD_BUFFER_SIZE = 5; 
 let currentImageRequestID = 0; 
 
@@ -250,6 +251,31 @@ function createGameElements() {
         gameViewport.prepend(roadDiv);
     }
 
+
+if (!document.getElementById('mute-btn')) {
+    const btn = document.createElement('button');
+    btn.id = 'mute-btn';
+    btn.textContent = '🔊';
+
+    // Funzione unica per gestire il toggle
+    const toggleMute = (e) => {
+        // Ferma la propagazione: NON muovere la vespa quando tocco il tasto
+        e.stopPropagation(); 
+        // Su mobile, previene che il browser generi un click fantasma dopo il touch
+        if (e.type === 'touchstart') e.preventDefault();
+
+        isMuted = !isMuted;
+        btn.textContent = isMuted ? '🔇' : '🔊';
+        const bgMusic = document.getElementById('bg-music');
+        if(bgMusic) bgMusic.muted = isMuted;
+    };
+
+    // Aggiungiamo entrambi i listener per massima compatibilità
+    btn.addEventListener('touchstart', toggleMute, { passive: false });
+    btn.addEventListener('mousedown', toggleMute); // Usa mousedown invece di click per reattività immediata su PC
+
+    gameViewport.appendChild(btn);
+}
     // NUOVO: Overlay Caricamento con BARRA DI PROGRESSO
     if (!document.getElementById('loading-overlay')) {
         const loadingDiv = document.createElement('div');
@@ -312,27 +338,36 @@ createGameElements();
 
 // --- AUDIO ---
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-function playNote(freq, dur, type = 'sine') {
+
+function playNote(freq, dur) {
+    if (isMuted) return;
     if (audioCtx.state === 'suspended') audioCtx.resume();
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
-    osc.type = type; osc.connect(gain); gain.connect(audioCtx.destination);
-    osc.frequency.value = freq;
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
     gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + dur);
-    osc.start(); osc.stop(audioCtx.currentTime + dur);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + dur);
 }
+
 function playTurboSound() {
+    if (isMuted) return;
     if (audioCtx.state === 'suspended') audioCtx.resume();
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
-    osc.type = 'triangle'; osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.type = 'triangle';
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
     const now = audioCtx.currentTime;
     osc.frequency.setValueAtTime(200, now);
     osc.frequency.exponentialRampToValueAtTime(800, now + 0.3);
     gain.gain.setValueAtTime(0.1, now);
     gain.gain.linearRampToValueAtTime(0, now + 0.3);
-    osc.start(); osc.stop(now + 0.3);
+    osc.start();
+    osc.stop(now + 0.3);
 }
 
 // --- VISUALIZZAZIONE SFONDO ---
@@ -425,7 +460,7 @@ function startGame() {
 }
 
 function updateUI() {
-    if (scoreDisplay) scoreDisplay.textContent = `Punti: ${score}`;
+  if (scoreDisplay) scoreDisplay.textContent = `Città: ${score}`;
     if (livesDisplay) livesDisplay.textContent = "❤️".repeat(lives);
 }
 
@@ -440,6 +475,24 @@ window.addEventListener('touchstart', e => {
     touchStartX = e.touches[0].clientX;
     touchStartY = e.touches[0].clientY;
 }, { passive: false });
+
+// MOUSE CONTROLS
+window.addEventListener('mousedown', e => {
+    if (!gameActive) return;
+    if (e.button === 0) { // Tasto Sinistro: Muovi
+        if (e.clientX < window.innerWidth / 2) moveLeft();
+        else moveRight();
+    } else if (e.button === 2) { // Tasto Destro: Turbo
+        if (!isTurbo) {
+            isTurbo = true;
+            playTurboSound();
+        }
+    }
+});
+
+// Disabilita menu contestuale tasto destro
+window.addEventListener('contextmenu', e => e.preventDefault());
+
 
 window.addEventListener('touchend', e => {
     if (!gameActive) return;
