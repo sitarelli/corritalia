@@ -238,9 +238,9 @@ function createGameElements() {
     if (!gameViewport) return;
 
     if (!document.getElementById('city-background')) {
-        const bgDiv = document.createElement('div');
+       
+const bgDiv = document.createElement('div');
         bgDiv.id = 'city-background';
-        bgDiv.style.cssText = `position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -2; background-color: #1a1a1a; background-size: cover; background-position: center bottom; transition: none;`;
         gameViewport.prepend(bgDiv);
     }
 
@@ -371,6 +371,69 @@ function playTurboSound() {
 }
 
 // --- VISUALIZZAZIONE SFONDO ---
+function changeBackground(newUrl) {
+    const bgContainer = document.getElementById('city-background');
+    if (!bgContainer) return;
+
+    const currentBg = getComputedStyle(bgContainer).backgroundImage;
+
+    // Se non c'è immagine o è la stessa, cambia e basta senza animazione
+    if (currentBg === 'none' || currentBg.includes(newUrl)) {
+        bgContainer.style.backgroundImage = `url('${newUrl}')`;
+        bgContainer.style.opacity = "1";
+        return;
+    }
+
+    // 1. Crea livello temporaneo con la VECCHIA immagine
+    const tempLayer = document.createElement('div');
+    tempLayer.className = 'bg-transition-layer';
+    tempLayer.style.backgroundImage = currentBg;
+
+    // 2. Inseriscilo nel DOM subito DOPO il background container
+    // (visivamente apparirà sopra perché ha z-index -2 contro -3)
+    bgContainer.parentNode.insertBefore(tempLayer, bgContainer.nextSibling);
+
+    // 3. Aggiorna SUBITO l'immagine di sfondo vera (che sta sotto)
+    bgContainer.style.backgroundImage = `url('${newUrl}')`;
+    bgContainer.style.opacity = "1";
+
+    // 4. Rimuovi il livello temporaneo alla fine dell'animazione
+    setTimeout(() => {
+        if(tempLayer.parentNode) tempLayer.parentNode.removeChild(tempLayer);
+    }, 1200);
+}
+
+function changeBackground(newUrl) {
+    const bgContainer = document.getElementById('city-background');
+    if (!bgContainer) return;
+    const currentBg = getComputedStyle(bgContainer).backgroundImage;
+
+    if (currentBg === 'none' || currentBg.includes(newUrl)) {
+        bgContainer.style.backgroundImage = `url('${newUrl}')`;
+        document.body.style.backgroundImage = `url('${newUrl}')`;
+        return;
+    }
+
+    const createLayer = (parent, isFixed) => {
+        const layer = document.createElement('div');
+        layer.className = 'bg-transition-layer';
+        layer.style.backgroundImage = currentBg;
+        if (isFixed) {
+            layer.style.position = 'fixed';
+            layer.style.zIndex = '-10';
+        }
+        parent.appendChild(layer);
+        setTimeout(() => layer.remove(), 1200);
+    };
+
+    // Anima interno ed esterno in sincrono
+    createLayer(bgContainer.parentNode, false);
+    createLayer(document.body, true);
+
+    bgContainer.style.backgroundImage = `url('${newUrl}')`;
+    document.body.style.backgroundImage = `url('${newUrl}')`;
+}
+
 function updateTargetDisplay() {
     if (gameQueue.length === 0) return;
     const currentItem = gameQueue[0];
@@ -385,19 +448,15 @@ function updateTargetDisplay() {
     if (missionLabel) missionLabel.textContent = "DESTINAZIONE:";
  
 if (targetDisplay) targetDisplay.textContent = currentItem.città.toUpperCase();
-    // if (targetCuriosity) {
-    //     targetCuriosity.textContent = currentItem.curiosità || "";
-    //     targetCuriosity.classList.remove('hidden');
-    // }
+    
 
-    const applyBackground = (src) => {
+   const applyBackground = (src) => {
         if (requestId !== currentImageRequestID) return;
-        const innerBg = document.getElementById('city-background');
-        if (innerBg) {
-            innerBg.style.backgroundImage = `url('${src}')`;
-            innerBg.style.backgroundColor = "transparent";
-            innerBg.style.opacity = "1";
-        }
+        
+        // Usa la nuova transizione zoom
+        changeBackground(src);
+        
+        // Mantieni il background anche sul body per sicurezza (fallback)
         document.body.style.backgroundImage = `url('${src}')`;
     };
 
